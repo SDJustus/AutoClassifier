@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import random
-
+import os
 from torchvision import datasets
 from torchvision import transforms
 from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
@@ -11,10 +11,7 @@ def _init_fn(worker_id):
     np.random.seed(int(0))
 
 def get_train_valid_loader(batch_size,
-                           random_seed,
                            path,
-                           problem,
-                           valid_size=0.1,
                            shuffle=True,
                            num_workers=4,
                            pin_memory=False):
@@ -41,53 +38,28 @@ def get_train_valid_loader(batch_size,
     - train_loader: training set iterator.
     - valid_loader: validation set iterator.
     """
-    error_msg = "[!] valid_size should be in the range [0, 1]."
-    assert ((valid_size >= 0) and (valid_size <= 1)), error_msg
-
-    mean = [[0.2748, 0.2748, 0.2748], [0.3964, 0.3964, 0.3964], [0.5176, 0.5176, 0.5176], [0.6931, 0.6931, 0.6931], [0.5000, 0.5000, 0.5000], [0.3807, 0.3807, 0.3807]]
-    std  = [[0.1121, 0.1121, 0.1121], [0.2252, 0.2252, 0.2252], [0.1278, 0.1278, 0.1278], [0.0758, 0.0758, 0.0758], [0.1186, 0.1186, 0.1186], [0.2674, 0.2674, 0.2674]]
-
-    # define transforms
-    valid_transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize(mean[problem-1], std[problem-1])
-    ])
 
     train_transform = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean[problem-1], std[problem-1])
+        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5))
     ])
 
     # load the dataset
-    train_dataset = datasets.ImageFolder(root=path, transform=train_transform)
-    valid_dataset = datasets.ImageFolder(root=path, transform=valid_transform)
-    test_dataset = datasets.ImageFolder(root=path, transform=valid_transform)
+    train_dataset = datasets.ImageFolder(root=os.path.join(path, "train/"), transform=train_transform)
+    valid_dataset = datasets.ImageFolder(root=os.path.join(path, "test/"), transform=train_transform)
+    test_dataset = datasets.ImageFolder(root=os.path.join(path, "test/"), transform=train_transform)
 
-
-    num_train = len(train_dataset)
-    indices = list(range(num_train))
-    split = int(np.floor(valid_size * num_train))
-
-    if shuffle:
-        np.random.seed(random_seed)
-        np.random.shuffle(indices)
-
-
-    train_idx, valid_idx, test_idx = indices[split:], indices[: int((split/2))], indices[int((split/2)):split]
-    train_sampler = SubsetRandomSampler(train_idx) # SubsetRandomSampler
-    valid_sampler = SubsetRandomSampler(valid_idx)
-    test_sampler  = SubsetRandomSampler(test_idx)
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=False, batch_size=batch_size, sampler=train_sampler,
+        train_dataset, shuffle=shuffle, batch_size=batch_size,
         num_workers=num_workers, pin_memory=pin_memory,
     )
     valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, shuffle=False, batch_size=batch_size, sampler=valid_sampler,
+        valid_dataset, shuffle=False, batch_size=batch_size,
         num_workers=num_workers, pin_memory=pin_memory,
     )
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, shuffle=False, batch_size=batch_size, sampler=test_sampler,
+        test_dataset, shuffle=False, batch_size=batch_size,
         num_workers=num_workers, pin_memory=pin_memory,
     )
 

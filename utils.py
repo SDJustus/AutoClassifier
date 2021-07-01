@@ -199,10 +199,10 @@ class Utils():
         return trainloader, testloader, valloader, nClasses
 
     #--------------------------------------------------------------------------------#
-    def initializeModel(self, model_name, num_classes, use_pretrained=True):
+    def initializeModel(self, model_name, num_classes, use_pretrained=True, input_size=256):
         model_name = model_name.lower()
         model = None
-        input_size = 0
+        input_size = input_size
 
         if "resnet" in model_name:
             """ Resnet18
@@ -219,7 +219,6 @@ class Utils():
                 model = torchvision.models.resnet152(pretrained=use_pretrained)
             num_ftrs = model.fc.in_features
             model.fc = nn.Linear(num_ftrs, num_classes)
-            input_size = 224
 
         elif model_name == "alexnet":
             """ Alexnet
@@ -227,7 +226,6 @@ class Utils():
             model = torchvision.models.alexnet(pretrained=use_pretrained)
             num_ftrs = model.classifier[6].in_features
             model.classifier[6] = nn.Linear(num_ftrs,num_classes)
-            input_size = 224
 
         elif "vgg" in model_name:
             """ VGG
@@ -258,7 +256,6 @@ class Utils():
 
             num_ftrs = model.classifier[6].in_features
             model.classifier[6] = nn.Linear(num_ftrs,num_classes)
-            input_size = 224
 
         elif "squeezenet" in model_name:
             """ Squeezenet
@@ -270,7 +267,6 @@ class Utils():
             num_ftrs = model.classifier[1].in_channels
             model.classifier[1] = nn.Conv2d(num_ftrs, num_classes, kernel_size=(1,1), stride=(1,1))
             model.num_classes = num_classes
-            input_size = 224
 
         elif "densenet" in model_name:
             """ Densenet
@@ -286,7 +282,6 @@ class Utils():
 
             num_ftrs = model.classifier.in_features
             model.classifier = nn.Linear(num_ftrs, num_classes)
-            input_size = 224
 
         elif model_name == "inception":
             """ Inception v3
@@ -299,7 +294,6 @@ class Utils():
             # Handle the primary net
             num_ftrs = model.fc.in_features
             model.fc = nn.Linear(num_ftrs,num_classes)
-            input_size = 299
 
         else:
             print("Invalid model name, returning 'None'...")
