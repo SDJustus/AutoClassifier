@@ -11,6 +11,7 @@ import copy
 import time
 import os
 from collections import OrderedDict 
+from tqdm import tqdm
 
 
 class Utils():
@@ -58,7 +59,7 @@ class Utils():
         lossTotal = 0
         predictions = [] # Store all predictions, for metric analysis
 
-        for i, data in enumerate(dataloader, 0):
+        for data in tqdm(dataloader, 0):
             # get the inputs; data is a list of [inputs, labels]
             inputs, labels = data
             inputs = inputs.to(self.device)
