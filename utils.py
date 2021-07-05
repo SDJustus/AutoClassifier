@@ -1,17 +1,13 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
 from torch.optim import lr_scheduler
 import torch.optim as optim
 import torchvision
-from torchvision import transforms, datasets
+from torchvision import transforms
 
-import numpy as np
-import copy
 import time
-import os
-from collections import OrderedDict 
 from tqdm import tqdm
+from efficientnet_pytorch import EfficientNet
 
 
 class Utils():
@@ -59,9 +55,8 @@ class Utils():
         lossTotal = 0
         predictions = [] # Store all predictions, for metric analysis
 
-        for data in tqdm(dataloader, 0):
+        for inputs, labels in tqdm(dataloader):
             # get the inputs; data is a list of [inputs, labels]
-            inputs, labels = data
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
 
@@ -295,7 +290,12 @@ class Utils():
             # Handle the primary net
             num_ftrs = model.fc.in_features
             model.fc = nn.Linear(num_ftrs,num_classes)
-
+        
+        elif "efficientnet" in model_name:
+            model = EfficientNet.from_pretrained(model_name)
+            num_ftrs = model._fc.in_features
+            model._fc = nn.Linear(num_ftrs, num_classes)
+            #TODO: Maybe remove last Swish
         else:
             print("Invalid model name, returning 'None'...")
             return None
