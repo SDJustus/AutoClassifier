@@ -21,24 +21,20 @@ batch_size   = 10
 device       = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 utils        = utils.Utils(batch_size, device)
 
-network = 'vgg16'
+network = 'resnet50'
 model = utils.initializeModel(network, 2)
 
 
 # Generate dataset features, removing VGG16 classification component
 def generateDatasetFeatures(network):
     
-    trainLoader, valLoader, testLoader = get_train_valid_loader(batch_size, 0, path+"Problem"+str(problem)+"/", problem, 0.3, num_workers=4)
-    model = torch.load(path_models+network+"_"+"problem"+str(problem)+".pth")
-    model.classifier[1] = nn.Identity()
-    model.classifier[2] = nn.Identity()
-    model.classifier[3] = nn.Identity()
-    model.classifier[4] = nn.Identity()
-    model.classifier[5] = nn.Identity()
-    model.classifier[6] = nn.Identity()
+    trainLoader, valLoader, testLoader = get_train_valid_loader(batch_size, path)
+    model = torch.load(path_models)
+    model.to(device)
+    model.fc = nn.Identity()
 
     print("Test")
-    f = open('./dataset/'+network+'_linear_problem'+str(problem)+'_test.csv','w')
+    f = open('./dataset/'+network+'_test.csv','w')
     #f.write('x\ty\n')
 
     inferenceTime = []
@@ -66,7 +62,7 @@ def generateDatasetFeatures(network):
     #print(f'Inference Time Mean: {np.mean(inferenceTimeMean)}, STD:{np.std(inferenceTimeMean)}')
     
     print("Validation")
-    f = open('./dataset/'+network+'_linear_problem'+str(problem)+'_validation.csv','w')
+    f = open('./dataset/'+network+'_validation.csv','w')
     with torch.no_grad():
         for data in valLoader:
             inputs, labels = data
@@ -82,7 +78,7 @@ def generateDatasetFeatures(network):
     f.close()
 
     print("Train")
-    f = open('./dataset/'+network+'_linear_problem'+str(problem)+'_train.csv','w')
+    f = open('./dataset/'+network+'_train.csv','w')
     with torch.no_grad():
         for data in trainLoader:
             inputs, labels = data
@@ -100,48 +96,48 @@ def generateDatasetFeatures(network):
 
 
 if __name__ == "__main__":
-h2o.init()
+    h2o.init()
+    generateDatasetFeatures(network)
+    print("[Starting Problem")
+    # put path for the newly datasets generated before
+    network= 'resnet50'
+    x_train = h2o.import_file('./dataset/'+network+'_train.csv')
+    x_val = h2o.import_file('./dataset/'+network+'_validation.csv')
+    x_test = h2o.import_file('./dataset/'+network+'_test.csv')
+    y_test = x_test['C4097'] #predictions
+    x = x_train.columns
+    y = 'C4097'
+    x.remove(y)
+    #x_train[y] = x_train[y].asfactor()
+    #x_val[y] = x_val[y].asfactor()
+    #x_test[y] = x_test[y].asfactor()
 
-print("[Starting Problem "+str(problem)+" ...]")
-# put path for the newly datasets generated before
-network= 'vgg16'
-x_train = h2o.import_file('./dataset/'+network+'_linear_problem'+str(problem)+'_train.csv')
-x_val = h2o.import_file('./dataset/'+network+'_linear_problem'+str(problem)+'_validation.csv')
-x_test = h2o.import_file('./dataset/'+network+'_linear_problem'+str(problem)+'_test.csv')
-y_test = x_test['C4097'] #predictions
-x = x_train.columns
-y = 'C4097'
-x.remove(y)
-#x_train[y] = x_train[y].asfactor()
-#x_val[y] = x_val[y].asfactor()
-#x_test[y] = x_test[y].asfactor()
 
+    aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = 1) #each problem will be searched for 2 hours
+    aml.train(y = y, training_frame = x_train, validation_frame=x_val)
 
-aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = 1) #each problem will be searched for 2 hours
-aml.train(y = y, training_frame = x_train, validation_frame=x_val)
+    lb = aml.leaderboard
+    print(lb.head())
 
-lb = aml.leaderboard
-print(lb.head())
+    startTime = time.time()
+    preds = aml.predict(x_test)
+    print("Predictions")
+    endTime = time.time()-startTime
+    print (f'Prediction time: {endTime} secs')
+    print (f'Prediction time / individual: {endTime/173} secs')
+    print(preds)
+    print()
+    lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
+    print(lb)
+    #h2o.save_model(aml.leader, path = "./AutoML_models/problem"+str(problem)+"/")
 
-startTime = time.time()
-preds = aml.predict(x_test)
-print("Predictions")
-endTime = time.time()-startTime
-print (f'Prediction time: {endTime} secs')
-print (f'Prediction time / individual: {endTime/173} secs')
-print(preds)
-print()
-lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
-print(lb)
-#h2o.save_model(aml.leader, path = "./AutoML_models/problem"+str(problem)+"/")
-
-true_label = np.rint(np.array(h2o.as_list(x_test[y]))).astype(int)
-predictions = np.rint(np.array(h2o.as_list(preds))).astype(int)
-print("Metrics [...]")
-fpr, tpr, thresholds = metrics.roc_curve(true_label, predictions)
-auc        = metrics.auc(fpr, tpr)
-accuracy   = sklearn.metrics.accuracy_score(true_label, predictions)
-confMatrix = metrics.confusion_matrix(true_label, predictions)
-print(f'Accuracy:{accuracy}')
-print(f'AUC-Score:{auc}')
-print(f'Confusion Matrix:\n{confMatrix}')
+    true_label = np.rint(np.array(h2o.as_list(x_test[y]))).astype(int)
+    predictions = np.rint(np.array(h2o.as_list(preds))).astype(int)
+    print("Metrics [...]")
+    fpr, tpr, thresholds = metrics.roc_curve(true_label, predictions)
+    auc        = metrics.auc(fpr, tpr)
+    accuracy   = sklearn.metrics.accuracy_score(true_label, predictions)
+    confMatrix = metrics.confusion_matrix(true_label, predictions)
+    print(f'Accuracy:{accuracy}')
+    print(f'AUC-Score:{auc}')
+    print(f'Confusion Matrix:\n{confMatrix}')

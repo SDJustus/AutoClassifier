@@ -295,7 +295,6 @@ class Utils():
             model = EfficientNet.from_pretrained(model_name)
             num_ftrs = model._fc.in_features
             model._fc = nn.Linear(num_ftrs, num_classes)
-            #TODO: Maybe remove last Swish
         else:
             print("Invalid model name, returning 'None'...")
             return None
