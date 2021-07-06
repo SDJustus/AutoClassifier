@@ -8,7 +8,7 @@ from sklearn import metrics
 import sklearn.model_selection
 import sklearn.datasets
 import sklearn.metrics
-
+import pandas
 import h2o
 from h2o.automl import H2OAutoML
 import pandas as pd
@@ -17,8 +17,8 @@ import utils
 from split_train import get_train_valid_loader
 import time
 
-path         = "specifypls"
-path_models  = "/dataset/models/"
+path         = "../../isi-diploma-model-tests/skip-ganomaly/data/custom_dataset_adjusted_deep/"
+path_models  = "./resnet50test.pth"
 batch_size   = 10
 device       = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
 utils        = utils.Utils(batch_size, device)
@@ -99,16 +99,17 @@ def generateDatasetFeatures(network):
 
 if __name__ == "__main__":
     h2o.init()
-    generateDatasetFeatures(network)
+    #generateDatasetFeatures(network)
     print("[Starting Problem")
     # put path for the newly datasets generated before
     network= 'resnet50'
     x_train = h2o.import_file('./dataset/'+network+'_train.csv')
     x_val = h2o.import_file('./dataset/'+network+'_validation.csv')
     x_test = h2o.import_file('./dataset/'+network+'_test.csv')
-    y_test = x_test['C4097'] #predictions
+    y_test = x_test['C2049'] #predictions
     x = x_train.columns
-    y = 'C4097'
+    print(x_test)
+    y = 'C2049'
     x.remove(y)
     #x_train[y] = x_train[y].asfactor()
     #x_val[y] = x_val[y].asfactor()
@@ -136,6 +137,7 @@ if __name__ == "__main__":
     true_label = np.rint(np.array(h2o.as_list(x_test[y]))).astype(int)
     predictions = np.array(h2o.as_list(preds))
     print("Metrics [...]")
+
     fpr, tpr, t = metrics.roc_curve(true_label, predictions, pos_label=0)
     roc_score = metrics.auc(fpr, tpr)
     
@@ -158,3 +160,4 @@ if __name__ == "__main__":
                                 
     print(performance)
     
+
