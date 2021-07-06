@@ -132,7 +132,7 @@ if __name__ == "__main__":
     #h2o.save_model(aml.leader, path = "./AutoML_models/problem"+str(problem)+"/")
 
     true_label = np.rint(np.array(h2o.as_list(x_test[y]))).astype(int)
-    predictions = np.rint(np.array(h2o.as_list(preds))).astype(int)
+    predictions = np.array(h2o.as_list(preds))
     print("Metrics [...]")
     fpr, tpr, thresholds = metrics.roc_curve(true_label, predictions)
     auc        = metrics.auc(fpr, tpr)
