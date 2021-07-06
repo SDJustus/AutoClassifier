@@ -1,3 +1,4 @@
+from typing import OrderedDict
 import torch
 import torch.nn as nn
 import numpy as np
@@ -10,6 +11,7 @@ import sklearn.metrics
 
 import h2o
 from h2o.automl import H2OAutoML
+import pandas as pd
 
 import utils
 from split_train import get_train_valid_loader
@@ -134,10 +136,25 @@ if __name__ == "__main__":
     true_label = np.rint(np.array(h2o.as_list(x_test[y]))).astype(int)
     predictions = np.array(h2o.as_list(preds))
     print("Metrics [...]")
-    fpr, tpr, thresholds = metrics.roc_curve(true_label, predictions)
-    auc        = metrics.auc(fpr, tpr)
-    accuracy   = sklearn.metrics.accuracy_score(true_label, predictions)
-    confMatrix = metrics.confusion_matrix(true_label, predictions)
-    print(f'Accuracy:{accuracy}')
-    print(f'AUC-Score:{auc}')
-    print(f'Confusion Matrix:\n{confMatrix}')
+    fpr, tpr, t = metrics.roc_curve(true_label, predictions, pos_label=0)
+    roc_score = metrics.auc(fpr, tpr)
+    
+    #Threshold
+    i = np.arange(len(tpr))
+    roc = pd.DataFrame({'tf': pd.Series(tpr - (1 - fpr), index=i), 'threshold': pd.Series(t, index=i)})
+    roc_t = roc.iloc[(roc.tf - 0).abs().argsort()[:1]]
+    threshold = roc_t['threshold']
+    threshold = list(threshold)[0]
+    
+    y_preds = [1 if ele >= threshold else 0 for ele in predictions] 
+    
+    
+    precision, recall, f1_score, _ = metrics.precision_recall_fscore_support(true_label, predictions, average="binary", pos_label=0)
+    #### conf_matrix = [["true_normal", "false_abnormal"], ["false_normal", "true_abnormal"]]     
+    conf_matrix = metrics.confusion_matrix(true_label, predictions)
+    performance = OrderedDict([ ('AUC', roc_score), ('precision', precision),
+                                ("recall", recall), ("F1_Score", f1_score), ("conf_matrix", conf_matrix),
+                                ("threshold", threshold)])
+                                
+    print(performance)
+    
