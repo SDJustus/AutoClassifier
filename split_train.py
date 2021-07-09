@@ -1,19 +1,27 @@
 import torch
-import numpy as np
-import random
 import os
 from torchvision import datasets
 from torchvision import transforms
-from torch.utils.data.sampler import SubsetRandomSampler, SequentialSampler
 
+class ImageFolderWithPaths(datasets.ImageFolder):
+    """Custom dataset that includes image file paths. Extends
+    torchvision.datasets.ImageFolder
+    """
 
-def _init_fn(worker_id):
-    np.random.seed(int(0))
+    # override the __getitem__ method. this is the method that dataloader calls
+    def __getitem__(self, index):
+        # this is what ImageFolder normally returns 
+        original_tuple = super(ImageFolderWithPaths, self).__getitem__(index)
+        # the image file path
+        path = self.imgs[index][0]
+        path = os.path.split(path)[1]
+        # make a new tuple that includes original and the path
+        tuple_with_path = (original_tuple + (path,))
+        return tuple_with_path
 
 def get_train_valid_loader(batch_size,
                            path,
                            shuffle=True,
-                           num_workers=4,
                            pin_memory=False):
     """
     Utility function for loading and returning train and valid
@@ -45,28 +53,25 @@ def get_train_valid_loader(batch_size,
     ])
 
     # load the dataset
-    train_dataset = datasets.ImageFolder(root=os.path.join(path, "train/"), transform=train_transform)
-    valid_dataset = datasets.ImageFolder(root=os.path.join(path, "test/"), transform=train_transform)
-    test_dataset = datasets.ImageFolder(root=os.path.join(path, "test/"), transform=train_transform)
+    train_dataset = ImageFolderWithPaths(root=os.path.join(path, "train/"), transform=train_transform)
+    test_dataset = ImageFolderWithPaths(root=os.path.join(path, "test/"), transform=train_transform)
+    inference_dataset = ImageFolderWithPaths(root=os.path.join(path, "inference/"), transform=train_transform)
 
 
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=shuffle, batch_size=batch_size,
-        num_workers=num_workers, pin_memory=pin_memory,
-    )
-    valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, shuffle=False, batch_size=batch_size,
-        num_workers=num_workers, pin_memory=pin_memory,
+        train_dataset, shuffle=shuffle, batch_size=batch_size, pin_memory=pin_memory,
     )
     test_loader = torch.utils.data.DataLoader(
-        test_dataset, shuffle=False, batch_size=batch_size,
-        num_workers=num_workers, pin_memory=pin_memory,
+        test_dataset, shuffle=False, batch_size=batch_size, pin_memory=pin_memory,
+    )
+    inference_loader = torch.utils.data.DataLoader(
+        inference_dataset, shuffle=False, batch_size=batch_size, pin_memory=pin_memory,
     )
 
     #food101_mean, food101_std = online_mean_and_sd(train_loader)
     #print(f'Mean:{food101_mean}, STD:{food101_std}')
 
-    return (train_loader, valid_loader, test_loader)
+    return (train_loader, test_loader, inference_loader)
 
 
 def online_mean_and_sd(loader):

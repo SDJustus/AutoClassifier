@@ -1,30 +1,37 @@
+import json
+import os
+from visualizer import Visualizer
+from collections import OrderedDict
+import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 from torch.optim import lr_scheduler
 import torch.optim as optim
 import torchvision
-from torchvision import transforms
 
 import time
 from tqdm import tqdm
 from efficientnet_pytorch import EfficientNet
-
+from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support, confusion_matrix, average_precision_score, fbeta_score
 
 class Utils():
 
     #--------------------------------------------------------------------------------#
-    def __init__(self, batch_size, device='cuda'):
+    def __init__(self, batch_size, device='cuda', cfg=None):
     # Parameters:
         self.batch_size   = batch_size
         self.device       = device
+        self.visualizer = Visualizer(cfg, utils=self)
+        self.cfg = cfg
         
     #--------------------------------------------------------------------------------#
-    def getCrossEntropyLoss(self, weights=None):
+    def getCrossEntropyLoss(self, binary=False):
         #print("[Using CrossEntropyLoss...]")
-        if weights is not None:
-            criterion = nn.CrossEntropyLoss()
+        if binary:
+            criterion = nn.BCELoss()
         else:
-            criterion = nn.CrossEntropyLoss(weight=weights)
+            criterion = nn.CrossEntropyLoss()
 
         return (criterion)
 
@@ -47,16 +54,14 @@ class Utils():
     ''' Train function '''
     def train(self, model, dataloader, criterion, optimizer, epoch=None):
         model.train()
-
-        correct = 0
         total = 0
-        correct_batch = 0
-        total_batch = 0
         lossTotal = 0
-        predictions = [] # Store all predictions, for metric analysis
+        y_preds = [] # Store all predictions, for metric analysis
+        y_trues = []
 
-        for inputs, labels in tqdm(dataloader):
+        for i, data in enumerate(tqdm(dataloader)):
             # get the inputs; data is a list of [inputs, labels]
+            inputs, labels, _ = data
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
 
@@ -65,134 +70,110 @@ class Utils():
             # forward + backward + optimize
             #print(f'Input shape: {outputs.shape}')
             #print(f'Layer: {layer}')
-            outputs = model(inputs)
+            output = model(inputs)
 
-            _, predicted = torch.max(outputs.data, 1)
-            loss = criterion(outputs, labels)
+            #_, predicted = torch.max(outputs.data, 1)
+            loss = criterion(output, labels.float().unsqueeze(1))
             loss.backward()
+            
+            if self.cfg.display:
+                self.visualizer.plot_current_errors(total_steps=i*(epoch+1), errors=loss.item())
+            
             optimizer.step()
 
             # print statistics
             running_loss = loss.item() * inputs.size(0)
             lossTotal += running_loss # epoch loss
-            correct_batch = (predicted == labels).sum().item()
-            total_batch = labels.size(0)
-            predictions +=  list(predicted.cpu().numpy())
+            y_preds +=  list(output.detach().numpy())
+            y_trues += list(labels.cpu().numpy())
 
             #if i % 200 == 0:    # print every 200 mini-batches
             #    print('[%d, %5d] loss: %.5f ; Accuracy: %.2f'%
             #        (epoch, i + 1, running_loss/total_batch, 100 * correct_batch / total_batch))
-
+            
             running_loss = 0.0
-            correct += (predicted == labels).sum().item()
             total += labels.size(0)
-
-        accuracy = 100 * correct / total
-        lossTotal = lossTotal/total
+            
+        performance, t, _ = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        print("Performance", str(performance))
+        if self.cfg.display:
+            self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Train_Performance_AutoClassifier")
+            self.visualizer.plot_current_conf_matrix(epoch=epoch, cm=performance["conf_matrix"], tag="Train_Confusion_Matrix_AutoClassifier")
+            self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, global_step=epoch, tag="Train_PR_Curve_AutoClassifier")
         if epoch != None:
-            print(f'Epoch {epoch} - Train Accuracy: {accuracy},    Loss: {lossTotal}')
+            print(f'Epoch {epoch} - Train Performance: {performance}, Loss: {lossTotal}')
 
-        return model, accuracy, lossTotal, predictions
+        return model, performance, lossTotal, y_preds
 
     #--------------------------------------------------------------------------------#
     ''' Validation function '''
-    def evaluate(self, model, valloader, criterion, epoch=None):
+    def test(self, model, valloader, criterion, epoch=None):
         model.eval()
-        correct = 0
         total = 0
         running_loss = 0
-        predictions = [] # Store all predictions, for metric analysis
+        y_preds = [] # Store all predictions, for metric analysis
+        y_trues = []
 
         with torch.no_grad():
-            for data in valloader:
-                inputs, labels = data
+            for inputs, labels, _ in valloader:
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 #outputs = model(inputs)
 
-                outputs = model(inputs)
+                output = model(inputs)
 
-                loss = criterion(outputs, labels)
+                loss = criterion(output, labels.float().unsqueeze(1))
                 running_loss += loss.item() * inputs.size(0)
 
-                _, predicted = torch.max(outputs.data, 1)
+                #_, predicted = torch.max(output.data, 1)
 
                 total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-                predictions +=  list(predicted.cpu().numpy())
+                #correct += (predicted == labels).sum().item()
+                y_preds +=  list(output.detach().numpy())
+                y_trues += list(labels.cpu().numpy())
 
-        acc  = 100 * correct / total
+        #acc  = 100 * correct / total
         lossTotal = running_loss / total
+        performance, t, _ = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        if self.cfg.display:
+            self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Test_Performance_AutoClassifier")
+            self.visualizer.plot_current_conf_matrix(epoch=epoch, cm=performance["conf_matrix"], tag="Test_Confusion_Matrix_AutoClassifier")
+            self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, global_step=epoch, tag="Test_PR_Curve_AutoClassifier")
         if epoch != None:
-            print(f'Epoch {epoch} - Val Accuracy: {acc},    Loss: {loss}')
-        return acc, lossTotal, predictions
+            print(f'Epoch {epoch} - Val Performance: {performance},    Loss: {loss}')
+        return performance, lossTotal, y_preds
 
     #--------------------------------------------------------------------------------#
     ''' Test function '''
-    def test(self, model, testloader):
+    def inference(self, model, testloader, network=None):
         model.eval()
-        correct = 0
-        total = 0
-        predictions = []
-        trueLabels = []
+        y_preds = [] # Store all predictions, for metric analysis
+        y_trues = []
         inferenceTime = []
+        file_names = []
         with torch.no_grad():
             startTime = time.time()
-            for data in testloader:
-                inputs, labels = data
+            for inputs, labels, file_name_batch in testloader:
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
 
-                outputs = model(inputs)
-                _, predicted = torch.max(outputs.data, 1)
-                total += labels.size(0)
-                correct += (predicted == labels).sum().item()
-                trueLabels += list(labels.cpu().numpy())
-                predictions +=  list(predicted.cpu().numpy())
+                output = model(inputs)
+                
+                #_, predicted = torch.max(outputs.data, 1)
+                #correct += (predicted == labels).sum().item()
+                y_preds +=  list(output.detach().numpy())
+                y_trues += list(labels.cpu().numpy())
                 inferenceTime.append(time.time()-startTime)
+                file_names.extend(file_name_batch)
+        performance, t, y_preds_after_threshold = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        if self.cfg.display:
+            self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
+            self.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Inference_Confusion_Matrix_AutoClassifier")
+            self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Inference_PR_Curve_AutoClassifier")
+            
+        self.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join("classification_result_" + str(self.cfg.name) + "_" + network + ".json"))
+        print(f'Inf Performance: {performance}, Inf_times: {sum(inferenceTime)}')
 
-        acc = 100 * correct / total
-        return acc, predictions, trueLabels, inferenceTime
-
-
-    #--------------------------------------------------------------------------------#
-    def getCifar10Dataset(self):
-        CIFAR_MEAN = [0.49139968, 0.48215827, 0.44653124]
-        CIFAR_STD = [0.24703233, 0.24348505, 0.26158768]
-
-        transform_train = transforms.Compose([
-        #transforms.RandomCrop(32, padding=4),
-        #transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ])
-
-        validation_test = transforms.Compose([
-        #transforms.RandomCrop(32, padding=4),
-        #transforms.RandomHorizontalFlip(),
-        transforms.ToTensor(),
-        transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ])
-
-        transform_test = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(CIFAR_MEAN, CIFAR_STD),
-        ])
-
-        trainset = torchvision.datasets.CIFAR10(root='./data', train='train', download=True, transform=transform_train)
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=self.batch_size, shuffle=True, num_workers=4)
-
-        valset = torchvision.datasets.CIFAR10(root='./data', train='val', download=True, transform=transform_test)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=self.batch_size, shuffle=False, num_workers=4)
-
-        testset = torchvision.datasets.CIFAR10(root='./data', train='test', download=True, transform=transform_test)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=self.batch_size, shuffle=False, num_workers=4)
-
-
-        classes = ('plane', 'car', 'bird', 'cat', 'deer', 'dog', 'frog', 'horse', 'ship', 'truck')
-        nClasses = len(classes)
-
-        return trainloader, testloader, valloader, nClasses
 
     #--------------------------------------------------------------------------------#
     def initializeModel(self, model_name, num_classes, use_pretrained=True, input_size=256):
@@ -214,14 +195,14 @@ class Utils():
             elif '152' in model_name:
                 model = torchvision.models.resnet152(pretrained=use_pretrained)
             num_ftrs = model.fc.in_features
-            model.fc = nn.Linear(num_ftrs, num_classes)
+            model.fc = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif model_name == "alexnet":
             """ Alexnet
             """
             model = torchvision.models.alexnet(pretrained=use_pretrained)
             num_ftrs = model.classifier[6].in_features
-            model.classifier[6] = nn.Linear(num_ftrs,num_classes)
+            model.classifier[6] = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif "vgg" in model_name:
             """ VGG
@@ -251,7 +232,7 @@ class Utils():
                 return None
 
             num_ftrs = model.classifier[6].in_features
-            model.classifier[6] = nn.Linear(num_ftrs,num_classes)
+            model.classifier[6] = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif "squeezenet" in model_name:
             """ Squeezenet
@@ -261,7 +242,7 @@ class Utils():
             else:
                 model = torchvision.models.squeezenet1_0(pretrained=use_pretrained)
             num_ftrs = model.classifier[1].in_channels
-            model.classifier[1] = nn.Conv2d(num_ftrs, num_classes, kernel_size=(1,1), stride=(1,1))
+            model.classifier[1] = nn.Sequential(nn.Conv2d(num_ftrs, num_classes, kernel_size=(1,1), stride=(1,1)), nn.Sigmoid())
             model.num_classes = num_classes
 
         elif "densenet" in model_name:
@@ -277,7 +258,7 @@ class Utils():
                 model = torchvision.models.densenet121(pretrained=use_pretrained)
 
             num_ftrs = model.classifier.in_features
-            model.classifier = nn.Linear(num_ftrs, num_classes)
+            model.classifier = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif model_name == "inception":
             """ Inception v3
@@ -286,17 +267,103 @@ class Utils():
             model = torchvision.models.inception_v3(pretrained=use_pretrained)
             # Handle the auxilary net
             num_ftrs = model.AuxLogits.fc.in_features
-            model.AuxLogits.fc = nn.Linear(num_ftrs, num_classes)
+            model.AuxLogits.fc = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
             # Handle the primary net
             num_ftrs = model.fc.in_features
-            model.fc = nn.Linear(num_ftrs,num_classes)
+            model.fc = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
         
         elif "efficientnet" in model_name:
             model = EfficientNet.from_pretrained(model_name)
             num_ftrs = model._fc.in_features
-            model._fc = nn.Linear(num_ftrs, num_classes)
+            model._fc = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
         else:
             print("Invalid model name, returning 'None'...")
             return None
 
         return model, input_size
+    
+    def get_performance(self, y_trues, y_preds):
+        fpr, tpr, t = roc_curve(y_trues, y_preds)
+        roc_score = auc(fpr, tpr)
+        ap = average_precision_score(y_trues, y_preds, pos_label=1)
+        recall_dict = dict()
+        precisions = [0.996, 0.99, 0.95, 0.9]
+        
+        for p in precisions:
+            for th in t:
+                y_preds_new = [1 if ele >= th else 0 for ele in y_preds] 
+                if len(set(y_preds_new)) == 1:
+                    print("y_preds_new did only contain the element {}... Continuing with next iteration!".format(y_preds_new[0]))
+                    continue
+                
+                precision, recall, _, _ = precision_recall_fscore_support(y_trues, y_preds_new, average="binary", pos_label=1)
+                if precision<=p:
+                    print(f"writing {p}; {precision}")
+                    recall_dict["recall at pr="+str(p)+"(real_value="+str(precision)+")"] = recall
+                    break
+        
+        
+        #Threshold
+        i = np.arange(len(tpr))
+        roc = pd.DataFrame({'tf': pd.Series(tpr - (1 - fpr), index=i), 'threshold': pd.Series(t, index=i)})
+        roc_t = roc.iloc[(roc.tf - 0).abs().argsort()[:1]]
+        threshold = roc_t['threshold']
+        threshold = list(threshold)[0]
+        
+        
+        
+        y_preds = [1 if ele >= threshold else 0 for ele in y_preds] 
+        
+        
+        precision, recall, f1_score, _ = precision_recall_fscore_support(y_trues, y_preds, average="binary", pos_label=1)
+        f05_score = fbeta_score(y_trues, y_preds, beta=0.5, average="binary", pos_label=1)
+        #### conf_matrix = [["true_normal", "false_abnormal"], ["false_normal", "true_abnormal"]]     
+        conf_matrix = confusion_matrix(y_trues, y_preds)
+        performance = OrderedDict([ ('auc', roc_score), ("ap", ap), ('precision', precision),
+                                    ("recall", recall), ("f1_score", f1_score), ("f05_score", f05_score), ("conf_matrix", conf_matrix),
+                                    ("threshold", threshold)])
+        performance.update(recall_dict)
+                                    
+        return performance, t, y_preds
+
+    def get_values_for_pr_curve(self, y_trues, y_preds, thresholds):
+        precisions = []
+        recalls = []
+        tn_counts = []
+        fp_counts = []
+        fn_counts = []
+        tp_counts = []
+        for threshold in thresholds:
+            y_preds_new = [1 if ele >= threshold else 0 for ele in y_preds] 
+            tn, fp, fn, tp = confusion_matrix(y_trues, y_preds_new).ravel()
+            if len(set(y_preds_new)) == 1:
+                print("y_preds_new did only contain the element {}... Continuing with next iteration!".format(y_preds_new[0]))
+                continue
+            
+            precision, recall, _, _ = precision_recall_fscore_support(y_trues, y_preds_new, average="binary", pos_label=1)
+            precisions.append(precision)
+            recalls.append(recall)
+            tn_counts.append(tn)
+            fp_counts.append(fp)
+            fn_counts.append(fn)
+            tp_counts.append(tp)
+            
+            
+        
+        return np.array(tp_counts), np.array(fp_counts), np.array(tn_counts), np.array(fn_counts), np.array(precisions), np.array(recalls), len(thresholds)
+
+    def write_inference_result(self, file_names, y_preds, y_trues, outf):
+            classification_result = {"tp": [], "fp": [], "tn": [], "fn": []}
+            for file_name, gt, anomaly_score in zip(file_names, y_trues, y_preds):
+                anomaly_score=int(anomaly_score)
+                if gt == anomaly_score == 0:
+                    classification_result["tp"].append(file_name)
+                if anomaly_score == 0 and gt != anomaly_score:
+                    classification_result["fp"].append(file_name)
+                if gt == anomaly_score == 1:
+                    classification_result["tn"].append(file_name)
+                if anomaly_score == 1 and gt != anomaly_score:
+                    classification_result["fn"].append(file_name)
+                        
+            with open(outf, "w") as file:
+                json.dump(classification_result, file, indent=4)
