@@ -15,7 +15,7 @@ class Visualizer():
         self.cfg = cfg
         self.utils = utils
         from tensorboardX import SummaryWriter
-        self.writer = SummaryWriter(log_dir=os.path.join("../tensorboard/AutoClassifier/", self.cfg.name))
+        self.writer = SummaryWriter(log_dir=os.path.join("../tensorboard/AutoClassifier/", self.cfg.name, self.cfg.backbone))
 
     def plot_current_errors(self, total_steps, errors):
         """Plot current errros.
