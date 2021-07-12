@@ -84,7 +84,7 @@ class Utils():
             # print statistics
             running_loss = loss.item() * inputs.size(0)
             lossTotal += running_loss # epoch loss
-            y_preds +=  list(output.detach().numpy())
+            y_preds +=  list(output.detach().cpu().numpy())
             y_trues += list(labels.cpu().numpy())
 
             #if i % 200 == 0:    # print every 200 mini-batches
@@ -129,7 +129,7 @@ class Utils():
 
                 total += labels.size(0)
                 #correct += (predicted == labels).sum().item()
-                y_preds +=  list(output.detach().numpy())
+                y_preds +=  list(output.detach().cpu().numpy())
                 y_trues += list(labels.cpu().numpy())
 
         #acc  = 100 * correct / total
@@ -164,7 +164,7 @@ class Utils():
                 
                 #_, predicted = torch.max(outputs.data, 1)
                 #correct += (predicted == labels).sum().item()
-                y_preds +=  list(output.detach().numpy())
+                y_preds +=  list(output.detach().cpu().numpy())
                 y_trues += list(labels.cpu().numpy())
                 inferenceTime.append(time.time()-startTime)
                 file_names.extend(file_name_batch)

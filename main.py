@@ -49,7 +49,7 @@ if __name__ == "__main__":
     network = cfg.backbone
     num_output_neurons = 1
     outf = cfg.outf
-    if not os.path.isdir(outf): os.makedir(outf)
+    if not os.path.isdir(outf): os.mkdir(outf)
     
     
    
