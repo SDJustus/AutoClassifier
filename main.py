@@ -1,3 +1,4 @@
+import os
 from torchvision.datasets import vision
 import argparse
 import torch
@@ -24,6 +25,7 @@ def parse_args():
     parser.add_argument("--backbone", type=str, help="['vgg11', 'vgg16', 'vgg19', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'densenet121']")
     parser.add_argument("--seed", type=int, help="set seed for reproducability")
     parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
+    parser.add_argument("--outf", type=str, default="./output", help="dir to write results in!")
     return parser.parse_args()
 
 def seed_torch(seed=0):
@@ -46,6 +48,8 @@ if __name__ == "__main__":
     utils = Utils(batch_size, device, cfg=cfg)
     network = cfg.backbone
     num_output_neurons = 1
+    outf = cfg.outf
+    if not os.path.isdir(outf): os.makedir(outf)
     
     
    
@@ -86,7 +90,7 @@ if __name__ == "__main__":
         regular_train_loss.append(train_loss)
 
         # Validation
-        val_performance, val_loss, predictions = utils.test(model, testLoader, criterion, epoch)
+        val_performance, val_loss, predictions = utils.test(model, testLoader, criterion, epoch, outf=outf)
         val_auroc = val_performance["auc"]
         regular_val_auroc.append(val_auroc)
         regular_val_loss.append(val_loss)
@@ -101,5 +105,5 @@ if __name__ == "__main__":
     endTimeTrain = time.time()
 
     model.load_state_dict(best_model_wts)
-    utils.inference(model, inferenceLoader, network=network)
-    torch.save(model, "./" + str(network) + "test.pth")
+    utils.inference(model, inferenceLoader, network=network, outf=outf)
+    torch.save(model, os.path.join(outf, str(network) + "test.pth"))
