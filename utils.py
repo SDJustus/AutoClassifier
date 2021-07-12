@@ -306,7 +306,7 @@ class Utils():
         p_dict = OrderedDict(sorted(temp_dict.items(), reverse=True))
         for p in precisions:   
             for precision, recall in p_dict.items(): 
-                if precision<=p:
+                if float(precision)<=p:
                     print(f"writing {p}; {precision}")
                     recall_dict["recall at pr="+str(p)+"(real_value="+str(precision)+")"] = recall
                     break
