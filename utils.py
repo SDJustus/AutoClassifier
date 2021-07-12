@@ -135,7 +135,7 @@ class Utils():
         #acc  = 100 * correct / total
         lossTotal = running_loss / total
         performance, t, _ = self.get_performance(y_preds=y_preds, y_trues=y_trues)
-        with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt", "a")) as f:
+        with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt"), "a") as f:
             f.write(f'Epoch {epoch} - Val Performance: {str(performance)},    Loss: {str(loss)}')
             f.close()
         if self.cfg.display:
