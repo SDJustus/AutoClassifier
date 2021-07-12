@@ -90,7 +90,7 @@ if __name__ == "__main__":
         regular_train_loss.append(train_loss)
 
         # Validation
-        val_performance, val_loss, predictions = utils.test(model, testLoader, criterion, epoch, outf=outf)
+        val_performance, val_loss, predictions = utils.test(model, testLoader, criterion, epoch, outf=outf, network=network)
         val_auroc = val_performance["auc"]
         regular_val_auroc.append(val_auroc)
         regular_val_loss.append(val_loss)

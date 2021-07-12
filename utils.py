@@ -107,7 +107,7 @@ class Utils():
 
     #--------------------------------------------------------------------------------#
     ''' Validation function '''
-    def test(self, model, valloader, criterion, epoch=None, outf=None):
+    def test(self, model, valloader, criterion, epoch=None, outf=None, network=None):
         model.eval()
         total = 0
         running_loss = 0
@@ -135,8 +135,8 @@ class Utils():
         #acc  = 100 * correct / total
         lossTotal = running_loss / total
         performance, t, _ = self.get_performance(y_preds=y_preds, y_trues=y_trues)
-        with open(os.path.join(outf, str(self.cfg.name) +".txt"), "w") as f:
-            f.write(performance)
+        with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt", "a")) as f:
+            f.write(f'Epoch {epoch} - Val Performance: {performance},    Loss: {loss}')
             f.close()
         if self.cfg.display:
             self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Test_Performance_AutoClassifier")
@@ -173,8 +173,8 @@ class Utils():
             self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
             self.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Inference_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Inference_PR_Curve_AutoClassifier")
-        with open(os.path.join(outf, str(self.cfg.name) + "inference_"+".txt"), "w") as f:
-            f.write(performance)
+        with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt"), "a") as f:
+            f.write(f'Inf Performance: {performance}, Inf_times: {sum(inferenceTime)}')
             f.close()
         self.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join(outf,"classification_result_" + str(self.cfg.name) + "_" + network + ".json"))
         print(f'Inf Performance: {performance}, Inf_times: {sum(inferenceTime)}')
