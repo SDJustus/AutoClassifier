@@ -142,6 +142,7 @@ class Utils():
             self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Test_Performance_AutoClassifier")
             self.visualizer.plot_current_conf_matrix(epoch=epoch, cm=performance["conf_matrix"], tag="Test_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, global_step=epoch, tag="Test_PR_Curve_AutoClassifier")
+            self.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Test")
         if epoch != None:
             print(f'Epoch {epoch} - Val Performance: {performance},    Loss: {loss}')
         return performance, lossTotal, y_preds
@@ -173,6 +174,7 @@ class Utils():
             self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
             self.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Inference_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Inference_PR_Curve_AutoClassifier")
+            self..visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Inference")
         with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt"), "a") as f:
             f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(sum(inferenceTime))}')
             f.close()
@@ -308,7 +310,7 @@ class Utils():
             for precision, recall in p_dict.items(): 
                 if float(precision)<=p:
                     print(f"writing {p}; {precision}")
-                    recall_dict["recall at pr="+str(p)+"(real_value="+str(precision)+")"] = recall
+                    recall_dict["recall at pr="+str(p)] = recall
                     break
                 else:
                     continue
@@ -362,6 +364,10 @@ class Utils():
             
         
         return np.array(tp_counts), np.array(fp_counts), np.array(tn_counts), np.array(fn_counts), np.array(precisions), np.array(recalls), len(thresholds)
+    
+    def get_values_for_roc_curve(self, y_trues, y_preds):
+        fpr, tpr, _ = roc_curve(y_trues, y_preds) 
+        return fpr, tpr, auc(fpr, tpr)
 
     def write_inference_result(self, file_names, y_preds, y_trues, outf):
             classification_result = {"tp": [], "fp": [], "tn": [], "fn": []}
