@@ -30,7 +30,7 @@ model = utils.initializeModel(network, 2)
 # Generate dataset features, removing VGG16 classification component
 def generateDatasetFeatures(network):
     
-    trainLoader, valLoader, testLoader = get_train_valid_loader(batch_size, path)
+    trainLoader, testLoader, inferenceLoader = get_train_valid_loader(batch_size, path)
     model = torch.load(path_models)
     model.to(device)
     model.fc = nn.Identity()
@@ -42,7 +42,7 @@ def generateDatasetFeatures(network):
     inferenceTime = []
     with torch.no_grad():
         model.eval()
-        for data in testLoader:
+        for data in inferenceLoader:
             inputs, labels = data
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -66,7 +66,7 @@ def generateDatasetFeatures(network):
     print("Validation")
     f = open('./dataset/'+network+'_validation.csv','w')
     with torch.no_grad():
-        for data in valLoader:
+        for data in testLoader:
             inputs, labels = data
             inputs = inputs.to(device)
             labels = labels.to(device)
@@ -138,26 +138,7 @@ if __name__ == "__main__":
     predictions = np.array(h2o.as_list(preds))
     print("Metrics [...]")
 
-    fpr, tpr, t = metrics.roc_curve(true_label, predictions, pos_label=0)
-    roc_score = metrics.auc(fpr, tpr)
-    
-    #Threshold
-    i = np.arange(len(tpr))
-    roc = pd.DataFrame({'tf': pd.Series(tpr - (1 - fpr), index=i), 'threshold': pd.Series(t, index=i)})
-    roc_t = roc.iloc[(roc.tf - 0).abs().argsort()[:1]]
-    threshold = roc_t['threshold']
-    threshold = list(threshold)[0]
-    
-    y_preds = [1 if ele >= threshold else 0 for ele in predictions] 
-    
-    
-    precision, recall, f1_score, _ = metrics.precision_recall_fscore_support(true_label, predictions, average="binary", pos_label=0)
-    #### conf_matrix = [["true_normal", "false_abnormal"], ["false_normal", "true_abnormal"]]     
-    conf_matrix = metrics.confusion_matrix(true_label, predictions)
-    performance = OrderedDict([ ('AUC', roc_score), ('precision', precision),
-                                ("recall", recall), ("F1_Score", f1_score), ("conf_matrix", conf_matrix),
-                                ("threshold", threshold)])
-                                
+    performance = utils.get_performance(y_trues=true_label, y_preds=predictions)
     print(performance)
     
 

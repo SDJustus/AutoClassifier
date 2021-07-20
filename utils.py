@@ -180,6 +180,7 @@ class Utils():
             f.close()
         self.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join(outf,"classification_result_" + str(self.cfg.name) + "_" + network + ".json"))
         print(f'Inf Performance: {performance}, Inf_times: {sum(inferenceTime)}')
+        return file_names, y_preds_after_threshold, y_trues
 
 
     #--------------------------------------------------------------------------------#
