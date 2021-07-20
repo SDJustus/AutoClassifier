@@ -58,6 +58,7 @@ if __name__ == "__main__":
     # Create model
     if cfg.inference_only:
         model = torch.load(os.path.join(outf, str(network) + "test.pth"))
+        model.to(device)
     else:
         print("[Creating the model ...]")
         print(f"{network}")
