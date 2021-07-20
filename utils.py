@@ -174,7 +174,7 @@ class Utils():
             self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
             self.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Inference_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Inference_PR_Curve_AutoClassifier")
-            self..visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Inference")
+            self.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Inference")
         with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt"), "a") as f:
             f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(sum(inferenceTime))}')
             f.close()
