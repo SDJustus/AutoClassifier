@@ -56,24 +56,26 @@ if __name__ == "__main__":
         model.to(device)
         f_names, y_preds_after_threshold, y_trues = utils.inference(model, inferenceLoader, network=network, outf=outf)
         file_names[network] = f_names
-        model_predictions[network] = y_preds_after_threshold
-        model_trues[network] = y_trues
+        model_predictions[network] = np.array(y_preds_after_threshold)
+        model_trues[network] = np.array(y_trues)
         performances[network] = utils.get_performance(y_trues=y_trues, y_preds=y_preds_after_threshold)
         with open(os.path.join(network+"_"+str(seed), network+"_"+str(seed)+"_"+network+str(seed)+".txt"), "r") as file:
             aucroc_values[network] = re.search(r"Inf*.*auc', +(\d.\d+)'", file.read())
             file.close()
+    new_predictions = dict()
     for i in range(len(networks)):
         try:
             
-            voting =  aucroc_values[networks[i]]/sum(aucroc_values.values())
-            
+            weight = aucroc_values[networks[i]]/sum(aucroc_values.values())
+            new_predictions[networks[i]] = weight*model_predictions[networks[i]]
             print("model_trues",model_trues[networks[i]]==model_trues[networks[i+1]])
             print("file_names",file_names[networks[i]]==model_trues[networks[i+1]])
         except Exception as e:
             print(e)
-    voting = dict()
-    for backbone, aucroc in aucroc_values.items():
-        voting[backbone] = aucroc/sum(aucroc_values.values())
+    final_predictions = np.array(new_predictions.values()).sum(axis=0)
+    print(final_predictions)
+    print(utils.get_performance(y_trues=y_trues, y_preds=final_predictions))
+    
     
     
 

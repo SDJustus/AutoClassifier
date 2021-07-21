@@ -25,7 +25,7 @@ def parse_args():
     parser.add_argument("--seed", type=int, help="set seed for reproducability")
     parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
     parser.add_argument("--outf", type=str, default="./output", help="dir to write results in!")
-    parser.add_argument("--inference_only", type=bool, action="store_true", default=False, help="do only inference")
+    parser.add_argument("--inference_only", action="store_true", default=False, help="do only inference")
     return parser.parse_args()
 
 def seed_torch(seed=0):
