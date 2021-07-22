@@ -105,7 +105,7 @@ if __name__ == "__main__":
     cfg = parse_args()
     
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    network= 'resnet18'
+    network= cfg.backbone
     cfg.name = network + "_" + str(cfg.seed)
     cfg.outf = network + "_" + str(cfg.seed)
     utils = utils.Utils(cfg.batchsize, device, cfg=cfg)
