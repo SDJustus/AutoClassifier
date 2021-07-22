@@ -1,57 +1,53 @@
-from typing import OrderedDict
+import argparse
+import os
 import torch
 import torch.nn as nn
 import numpy as np
+from tqdm import tqdm
 from split_train import get_train_valid_loader
-from sklearn import metrics
-# data and metric imports
-import sklearn.model_selection
-import sklearn.datasets
-import sklearn.metrics
-import pandas
 import h2o
 from h2o.automl import H2OAutoML
-import pandas as pd
-
 import utils
 from split_train import get_train_valid_loader
 import time
 
-path         = "../../isi-diploma-model-tests/skip-ganomaly/data/custom_dataset_adjusted_deep/"
-path_models  = "./resnet50test.pth"
-batch_size   = 10
-device       = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-utils        = utils.Utils(batch_size, device)
+def parse_args():
+    parser = argparse.ArgumentParser(prog="AutoClassifier")
+    parser.add_argument("--dataroot", required=True, type=str)
+    parser.add_argument("--backbone", type=str, help="['vgg11', 'vgg16', 'vgg19', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'densenet121']")
+    parser.add_argument("--seed", type=int, help="set seed for reproducability")
+    parser.add_argument("--display", default=False, action="store_true")
+    parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
+    return parser.parse_args()
 
-network = 'resnet50'
-model = utils.initializeModel(network, 2)
 
 
 # Generate dataset features, removing VGG16 classification component
-def generateDatasetFeatures(network):
+def generateDatasetFeatures(network, cfg, device):
     
-    trainLoader, testLoader, inferenceLoader = get_train_valid_loader(batch_size, path)
-    model = torch.load(path_models)
+    trainLoader, testLoader, inferenceLoader = get_train_valid_loader(cfg.batchsize, cfg.dataroot)
+    model = torch.load(os.path.join(network+"_"+str(cfg.seed), network+"test.pth"))
     model.to(device)
     model.fc = nn.Identity()
 
-    print("Test")
-    f = open('./dataset/'+network+'_test.csv','w')
+    print("Prepare Inference csv-file")
+    f = open('./dataset/'+network+'_inference.csv','w')
     #f.write('x\ty\n')
 
     inferenceTime = []
     with torch.no_grad():
         model.eval()
-        for data in inferenceLoader:
-            inputs, labels = data
+        fnames_inf = [] 
+        for data in tqdm(inferenceLoader):
+            inputs, labels, fnames = data
+            fnames_inf.append(fnames)
             inputs = inputs.to(device)
-            labels = labels.to(device)
 
             #stBatch = time.time()
             outputs = model(inputs)
             #etBatch = time.time()-stBatch
             #inferenceTime.append(etBatch)
-            for output, label in zip(outputs.cpu().numpy(), labels.cpu().numpy()):
+            for output, label in zip(outputs.cpu().numpy(), labels.numpy()):
                 #print(np.array2string(output)+"\t"+np.array2string(label))
                 for value in output:
                     f.write(str(value)+",")
@@ -63,67 +59,74 @@ def generateDatasetFeatures(network):
     #print (inferenceTimeMean)
     #print(f'Inference Time Mean: {np.mean(inferenceTimeMean)}, STD:{np.std(inferenceTimeMean)}')
     
-    print("Validation")
-    f = open('./dataset/'+network+'_validation.csv','w')
+    print("Prepare Test csv-file")
+    f = open('./dataset/'+network+'_test.csv','w')
     with torch.no_grad():
-        for data in testLoader:
-            inputs, labels = data
+        for data in tqdm(testLoader):
+            inputs, labels, _ = data
             inputs = inputs.to(device)
-            labels = labels.to(device)
 
             outputs = model(inputs)
-            for output, label in zip(outputs.cpu().numpy(), labels.cpu().numpy()):
+            for output, label in zip(outputs.cpu().numpy(), labels.numpy()):
                 for value in output:
                     f.write(str(value)+",")
                 f.write(str(label))
                 f.write("\n")
     f.close()
 
-    print("Train")
+    print("Prepare Train csv-file")
     f = open('./dataset/'+network+'_train.csv','w')
     with torch.no_grad():
-        for data in trainLoader:
-            inputs, labels = data
+        for data in tqdm(trainLoader):
+            inputs, labels, _ = data
             inputs = inputs.to(device)
-            labels = labels.to(device)
 
             outputs = model(inputs)
-            for output, label in zip(outputs.cpu().numpy(), labels.cpu().numpy()):
+            for output, label in zip(outputs.cpu().numpy(), labels.numpy()):
                 for value in output:
                     f.write(str(value)+",")
                 f.write(str(label))
                 f.write("\n")
     f.close()
+    return fnames_inf
 
 
 
 if __name__ == "__main__":
     h2o.init()
-    #generateDatasetFeatures(network)
+    cfg = parse_args()
+    
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    network= 'resnet18'
+    cfg.name = network + "_" + str(cfg.seed)
+    cfg.outf = network + "_" + str(cfg.seed)
+    utils = utils.Utils(cfg.batchsize, device, cfg=cfg)
+    file_names = generateDatasetFeatures(network, cfg=cfg, device=device)
+    print(file_names)
     print("[Starting Problem")
     # put path for the newly datasets generated before
-    network= 'resnet50'
+    
     x_train = h2o.import_file('./dataset/'+network+'_train.csv')
-    x_val = h2o.import_file('./dataset/'+network+'_validation.csv')
     x_test = h2o.import_file('./dataset/'+network+'_test.csv')
-    y_test = x_test['C2049'] #predictions
+    x_inference = h2o.import_file('./dataset/'+network+'_inference.csv')
+    y_inference = x_inference['C2049'] #predictions
     x = x_train.columns
-    print(x_test)
-    y = 'C2049'
+    y = 'C513'
     x.remove(y)
+    print(x)
     #x_train[y] = x_train[y].asfactor()
     #x_val[y] = x_val[y].asfactor()
     #x_test[y] = x_test[y].asfactor()
 
 
-    aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = 1) #each problem will be searched for 2 hours
-    aml.train(y = y, training_frame = x_train, validation_frame=x_val)
+    aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = cfg.seed) #each problem will be searched for 2 hours
+    aml.train(y = y, training_frame = x_train, validation_frame=x_test)
 
     lb = aml.leaderboard
     print(lb.head())
 
     startTime = time.time()
-    preds = aml.predict(x_test)
+    preds = aml.predict(x_inference)
     print("Predictions")
     endTime = time.time()-startTime
     print (f'Prediction time: {endTime} secs')
@@ -132,13 +135,22 @@ if __name__ == "__main__":
     print()
     lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
     print(lb)
-    #h2o.save_model(aml.leader, path = "./AutoML_models/problem"+str(problem)+"/")
+    h2o.save_model(aml.leader, path="AutoML"+str(cfg.seed) + ".pth")
 
-    true_label = np.rint(np.array(h2o.as_list(x_test[y]))).astype(int)
-    predictions = np.array(h2o.as_list(preds))
+    y_trues = np.rint(np.array(h2o.as_list(x_inference[y]))).astype(int)
+    y_preds = np.array(h2o.as_list(preds))
     print("Metrics [...]")
+    
 
-    performance = utils.get_performance(y_trues=true_label, y_preds=predictions)
+    performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print(performance)
+    
+    if cfg.display:
+        utils.visualizer.plot_performance(epoch=1, performance=performance, tag="AutoML_Performance_AutoClassifier")
+        utils.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="AutoML_Confusion_Matrix_AutoClassifier")
+        utils.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="AutoML_PR_Curve_AutoClassifier")
+        utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_AutoML")
+    utils.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join("classification_result_automl_" + str(cfg.name) + "_" + network + ".json"))
+        
     
 

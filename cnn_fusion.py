@@ -19,15 +19,9 @@ def seed_torch(seed=0):
 def parse_args():
     parser = argparse.ArgumentParser(prog="AutoClassifier")
     parser.add_argument("--dataroot", required=True, type=str)
-    parser.add_argument("--name", required=True, type=str, help="Name for the train run")
-    parser.add_argument("--size",
-                        default="256",
-                        type=int,
-                        help="image size [default=256x256]")
     parser.add_argument("--backbones", nargs="+", help="['vgg11', 'vgg16', 'vgg19', 'resnet18', 'resnet34', 'resnet50', 'resnet101', 'densenet121']")
     parser.add_argument("--seed", type=int, help="set seed for reproducability")
-    parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
-    parser.add_argument("--outf", type=str, default="./output", help="dir to write results in!")
+    parser.add_argument("--display", default=False, action="store_true")
     return parser.parse_args()
 
 
@@ -38,43 +32,57 @@ if __name__ == "__main__":
     seed = cfg.seed
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     dataset_path = cfg.dataroot
-    utils = Utils(1, device, cfg=cfg)
-    outf = cfg.outf
     
     
-    _, _, inferenceLoader = get_train_valid_loader(1, dataset_path)
     seed_torch(seed)
-    models = list()
+    _, _, inferenceLoader = get_train_valid_loader(1, dataset_path)
+    
+    
     aucroc_values = dict()
-    file_names = dict()
     model_predictions = dict()
-    model_trues = dict()
     performances = dict()
+    file_names = list()
     for network in networks:
+        cfg.backbone = network
+        cfg.name = network + "_" + str(seed)
+        cfg.outf = network + "_" + str(seed)
+        utils = Utils(1, device, cfg=cfg)
         print(f"Starting Backbone: {network} Seed: {str(seed)}")
-        model = torch.load(os.path.join(network+"_"+str(seed)), network+str(seed)+"test.pth")
+        model = torch.load(os.path.join(network+"_"+str(seed), network+"test.pth"))
         model.to(device)
-        f_names, y_preds_after_threshold, y_trues = utils.inference(model, inferenceLoader, network=network, outf=outf)
-        file_names[network] = f_names
+        before = cfg.display
+        utils.cfg.display=False
+        file_names, y_preds_after_threshold, y_trues = utils.inference(model, inferenceLoader, network=network, outf=cfg.outf)
+        utils.cfg.display=before
         model_predictions[network] = np.array(y_preds_after_threshold)
-        model_trues[network] = np.array(y_trues)
         performances[network] = utils.get_performance(y_trues=y_trues, y_preds=y_preds_after_threshold)
-        with open(os.path.join(network+"_"+str(seed), network+"_"+str(seed)+"_"+network+str(seed)+".txt"), "r") as file:
-            aucroc_values[network] = re.search(r"Inf*.*auc', +(\d.\d+)'", file.read())
+        with open(os.path.join(network+"_"+str(seed), network+"_"+str(seed)+"_"+network+".txt"), "r") as file:
+            regex_string = re.search(r"Inf.*auc\D,\s(\d\.\d+)", file.read())[1]
+            aucroc_values[network] = float(regex_string)
             file.close()
     new_predictions = dict()
     for i in range(len(networks)):
         try:
-            
             weight = aucroc_values[networks[i]]/sum(aucroc_values.values())
+            print("weight", weight)
             new_predictions[networks[i]] = weight*model_predictions[networks[i]]
-            print("model_trues",model_trues[networks[i]]==model_trues[networks[i+1]])
-            print("file_names",file_names[networks[i]]==model_trues[networks[i+1]])
+            print("new_predictions", new_predictions)
+            #print("file_names",file_names[networks[i]]==model_trues[networks[i+1]])
         except Exception as e:
             print(e)
-    final_predictions = np.array(new_predictions.values()).sum(axis=0)
+    print("test",np.array(new_predictions.values()))
+    final_predictions = np.add(*new_predictions.values())
     print(final_predictions)
-    print(utils.get_performance(y_trues=y_trues, y_preds=final_predictions))
+    y_preds = final_predictions
+    performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
+    print(performance)
+    if cfg.display:
+        utils.visualizer.plot_performance(epoch=1, performance=performance, tag="Fusion_Performance_AutoClassifier")
+        utils.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Fusion_Confusion_Matrix_AutoClassifier")
+        utils.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Fusion_PR_Curve_AutoClassifier")
+        utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Fusion")
+    utils.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join("classification_result_fusion_" + str(cfg.name) + "_" + network + ".json"))
+        
     
     
     

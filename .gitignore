@@ -131,3 +131,5 @@ dmypy.json
 
 *.pth
 *.json
+*.txt
+dataset

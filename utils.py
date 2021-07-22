@@ -106,8 +106,8 @@ class Utils():
         return model, performance, lossTotal, y_preds
 
     #--------------------------------------------------------------------------------#
-    ''' Validation function '''
-    def test(self, model, valloader, criterion, epoch=None, outf=None, network=None):
+    ''' Test function '''
+    def test(self, model, testloader, criterion, epoch=None, outf=None, network=None):
         model.eval()
         total = 0
         running_loss = 0
@@ -115,7 +115,8 @@ class Utils():
         y_trues = []
 
         with torch.no_grad():
-            for inputs, labels, _ in valloader:
+            for data in tqdm(testloader):
+                inputs, labels, _ = data
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 #outputs = model(inputs)
@@ -148,8 +149,8 @@ class Utils():
         return performance, lossTotal, y_preds
 
     #--------------------------------------------------------------------------------#
-    ''' Test function '''
-    def inference(self, model, testloader, network=None, outf=None):
+    ''' Inference function '''
+    def inference(self, model, inferenceloader, network=None, outf=None):
         model.eval()
         y_preds = [] # Store all predictions, for metric analysis
         y_trues = []
@@ -157,7 +158,8 @@ class Utils():
         file_names = []
         with torch.no_grad():
             startTime = time.time()
-            for inputs, labels, file_name_batch in testloader:
+            for data in tqdm(inferenceloader):
+                inputs, labels, file_name_batch = data
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
 
