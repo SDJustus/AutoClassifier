@@ -65,19 +65,19 @@ if __name__ == "__main__":
         try:
             weight = aucroc_values[networks[i]]/sum(aucroc_values.values())
             print("weight", weight)
-            if type(new_predictions) is np.array:
-                print("i was here")
-                np.concat(new_predictions, weight*model_predictions[networks[i]])
+            if type(new_predictions) is np.ndarray:
+                #print("i was here")
+                new_predictions = np.vstack((new_predictions, weight*model_predictions[networks[i]]))
             else:
                 new_predictions = np.array(weight*model_predictions[networks[i]])
-            print("new_predictions", new_predictions)
+            #print("new_predictions", new_predictions)
             #print("file_names",file_names[networks[i]]==model_trues[networks[i+1]])
         except Exception as e:
             print(e)
     final_predictions = None
-    print("final_preds", final_predictions)
+    #print("final_preds", final_predictions)
     final_predictions = np.sum(new_predictions, axis=0)
-    print("final_preds_after",final_predictions)
+    #print("final_preds_after",final_predictions)
     y_preds = final_predictions
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print(performance)
