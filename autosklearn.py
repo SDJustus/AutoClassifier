@@ -27,6 +27,13 @@ def generateDatasetFeatures(network, cfg, device):
     
     trainLoader, testLoader, inferenceLoader = get_train_valid_loader(cfg.batchsize, cfg.dataroot)
     model = torch.load(os.path.join(network+"_"+str(cfg.seed), network+"test.pth"))
+    num_ftrs = None
+    if "resnet" in network:
+        num_ftrs = model.fc.in_features
+    elif "vgg" in network:
+        num_ftrs = model.classifier[6].in_features
+    else:
+        raise NotImplementedError(network + "not implemented yet.")
     model.to(device)
     model.fc = nn.Identity()
 
@@ -88,7 +95,7 @@ def generateDatasetFeatures(network, cfg, device):
                 f.write(str(label))
                 f.write("\n")
     f.close()
-    return fnames_inf
+    return fnames_inf, num_ftrs
 
 
 
@@ -101,7 +108,7 @@ if __name__ == "__main__":
     cfg.name = network + "_" + str(cfg.seed)
     cfg.outf = network + "_" + str(cfg.seed)
     utils = utils.Utils(cfg.batchsize, device, cfg=cfg)
-    file_names = generateDatasetFeatures(network, cfg=cfg, device=device)
+    file_names, num_ftrs = generateDatasetFeatures(network, cfg=cfg, device=device)
     print(file_names)
     print("[Starting Problem")
     # put path for the newly datasets generated before
@@ -111,7 +118,7 @@ if __name__ == "__main__":
     x_inference = h2o.import_file('./dataset/'+network+'_inference.csv')
     y_inference = x_inference['C2049'] #predictions
     x = x_train.columns
-    y = 'C513'
+    y = "C" + str(num_ftrs+1)
     x.remove(y)
     print(x)
     #x_train[y] = x_train[y].asfactor()

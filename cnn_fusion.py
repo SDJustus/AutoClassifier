@@ -60,19 +60,24 @@ if __name__ == "__main__":
             regex_string = re.search(r"Inf.*auc\D,\s(\d\.\d+)", file.read())[1]
             aucroc_values[network] = float(regex_string)
             file.close()
-    new_predictions = dict()
+    new_predictions = None
     for i in range(len(networks)):
         try:
             weight = aucroc_values[networks[i]]/sum(aucroc_values.values())
             print("weight", weight)
-            new_predictions[networks[i]] = weight*model_predictions[networks[i]]
+            if type(new_predictions) is np.array:
+                print("i was here")
+                np.concat(new_predictions, weight*model_predictions[networks[i]])
+            else:
+                new_predictions = np.array(weight*model_predictions[networks[i]])
             print("new_predictions", new_predictions)
             #print("file_names",file_names[networks[i]]==model_trues[networks[i+1]])
         except Exception as e:
             print(e)
-    print("test",np.array(new_predictions.values()))
-    final_predictions = np.add(*new_predictions.values())
-    print(final_predictions)
+    final_predictions = None
+    print("final_preds", final_predictions)
+    final_predictions = np.sum(new_predictions, axis=0)
+    print("final_preds_after",final_predictions)
     y_preds = final_predictions
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print(performance)
