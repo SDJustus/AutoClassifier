@@ -27,11 +27,12 @@ def generateDatasetFeatures(network, cfg, device):
     
     trainLoader, testLoader, inferenceLoader = get_train_valid_loader(cfg.batchsize, cfg.dataroot)
     model = torch.load(os.path.join(network+"_"+str(cfg.seed), network+"test.pth"))
+    print(model)
     num_ftrs = None
     if "resnet" in network:
-        num_ftrs = model.fc.in_features
+        num_ftrs = model.fc[0].in_features
     elif "vgg" in network:
-        num_ftrs = model.classifier[6].in_features
+        num_ftrs = model.classifier[6][0].in_features
     else:
         raise NotImplementedError(network + "not implemented yet.")
     model.to(device)
