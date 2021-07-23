@@ -18,6 +18,8 @@ def parse_args():
     parser.add_argument("--seed", type=int, help="set seed for reproducability")
     parser.add_argument("--display", default=False, action="store_true")
     parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
+    parser.add_argument("--inference_only", action="store_true", default=False, help="if only inference should be performed")
+    
     return parser.parse_args()
 
 
@@ -126,9 +128,11 @@ if __name__ == "__main__":
     #x_val[y] = x_val[y].asfactor()
     #x_test[y] = x_test[y].asfactor()
 
-
-    aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = cfg.seed) #each problem will be searched for 2 hours
-    aml.train(y = y, training_frame = x_train, validation_frame=x_test)
+    if cfg.inference_only:
+        aml = h2o.load_model("AutoML"+str(cfg.seed)+".pth")
+    else:
+        aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = cfg.seed) #each problem will be searched for 2 hours
+        aml.train(y = y, training_frame = x_train, validation_frame=x_test)
 
     lb = aml.leaderboard
     print(lb.head())
@@ -143,7 +147,8 @@ if __name__ == "__main__":
     print()
     lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
     print(lb)
-    h2o.save_model(aml.leader, path="AutoML"+str(cfg.seed) + ".pth")
+    if not cfg.inference_only:
+        h2o.save_model(aml.leader, path="AutoML"+str(cfg.seed) + ".pth")
 
     y_trues = np.rint(np.array(h2o.as_list(x_inference[y]))).astype(int)
     y_preds = np.array(h2o.as_list(preds))
