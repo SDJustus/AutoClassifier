@@ -130,7 +130,9 @@ if __name__ == "__main__":
     #x_test[y] = x_test[y].asfactor()
 
     if cfg.inference_only:
-        aml = h2o.load_model("AutoML"+str(cfg.seed)+".pth")
+        path = "AutoML"+str(cfg.seed)+".pth"
+        modelfile = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))][0]
+        aml = h2o.load_model(modelfile)
     else:
         aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = cfg.seed) #each problem will be searched for 2 hours
         aml.train(y = y, training_frame = x_train, validation_frame=x_test)
