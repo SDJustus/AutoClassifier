@@ -115,15 +115,16 @@ if __name__ == "__main__":
     print(file_names)
     print("[Starting Problem")
     # put path for the newly datasets generated before
-    
-    x_train = h2o.import_file('./dataset/'+network+'_train.csv')
-    x_test = h2o.import_file('./dataset/'+network+'_test.csv')
+    if not cfg.inference_only:
+        x_train = h2o.import_file('./dataset/'+network+'_train.csv')
+        x_test = h2o.import_file('./dataset/'+network+'_test.csv')
+        x = x_train.columns
+        y = "C" + str(num_ftrs+1)
+        x.remove(y)
+        print(x)
     x_inference = h2o.import_file('./dataset/'+network+'_inference.csv')
     y_inference = x_inference['C2049'] #predictions
-    x = x_train.columns
-    y = "C" + str(num_ftrs+1)
-    x.remove(y)
-    print(x)
+    
     #x_train[y] = x_train[y].asfactor()
     #x_val[y] = x_val[y].asfactor()
     #x_test[y] = x_test[y].asfactor()
@@ -134,8 +135,10 @@ if __name__ == "__main__":
         aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = cfg.seed) #each problem will be searched for 2 hours
         aml.train(y = y, training_frame = x_train, validation_frame=x_test)
 
-    lb = aml.leaderboard
-    print(lb.head())
+        lb = aml.leaderboard
+        print(lb.head())
+        lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
+        print(lb)
 
     startTime = time.time()
     preds = aml.predict(x_inference)
@@ -144,9 +147,7 @@ if __name__ == "__main__":
     print (f'Prediction time: {endTime} secs')
     print (f'Prediction time / individual: {endTime/173} secs')
     print(preds)
-    print()
-    lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
-    print(lb)
+    
     if not cfg.inference_only:
         h2o.save_model(aml.leader, path="AutoML"+str(cfg.seed) + ".pth")
 
@@ -154,7 +155,8 @@ if __name__ == "__main__":
     y_preds = np.array(h2o.as_list(preds))
     print("Metrics [...]")
     
-
+    y_preds = [y[0] for y in y_preds]
+    y_trues = [y[0] for y in y_trues]
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print(performance)
     
