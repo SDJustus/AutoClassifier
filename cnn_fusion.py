@@ -82,6 +82,7 @@ if __name__ == "__main__":
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print(performance)
     if cfg.display:
+        utils.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join("histogram_fusion_" + str(cfg.name) + "_" + network + ".csv"), tag="Histogram_Fusion_"+str(cfg.name))
         utils.visualizer.plot_performance(epoch=1, performance=performance, tag="Fusion_Performance_AutoClassifier")
         utils.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Fusion_Confusion_Matrix_AutoClassifier")
         utils.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Fusion_PR_Curve_AutoClassifier")

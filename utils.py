@@ -140,6 +140,7 @@ class Utils():
             f.write(f'Epoch {epoch} - Val Performance: {str(performance)},    Loss: {str(loss)}')
             f.close()
         if self.cfg.display:
+            self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_test_" + str(self.cfg.name) + "_" + network + ".csv"), tag="Histogram_Test_"+str(self.cfg.name))
             self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Test_Performance_AutoClassifier")
             self.visualizer.plot_current_conf_matrix(epoch=epoch, cm=performance["conf_matrix"], tag="Test_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, global_step=epoch, tag="Test_PR_Curve_AutoClassifier")
@@ -173,6 +174,7 @@ class Utils():
                 file_names.extend(file_name_batch)
         performance, t, y_preds_after_threshold = self.get_performance(y_preds=y_preds, y_trues=y_trues)
         if self.cfg.display:
+            self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_inference_" + str(self.cfg.name) + "_" + network + ".csv"), tag="Histogram_Inference_"+str(self.cfg.name))
             self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
             self.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Inference_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Inference_PR_Curve_AutoClassifier")
