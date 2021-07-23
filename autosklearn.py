@@ -115,13 +115,13 @@ if __name__ == "__main__":
     print(file_names)
     print("[Starting Problem")
     # put path for the newly datasets generated before
-    if not cfg.inference_only:
-        x_train = h2o.import_file('./dataset/'+network+'_train.csv')
-        x_test = h2o.import_file('./dataset/'+network+'_test.csv')
-        x = x_train.columns
-        y = "C" + str(num_ftrs+1)
-        x.remove(y)
-        print(x)
+    
+    x_train = h2o.import_file('./dataset/'+network+'_train.csv')
+    x_test = h2o.import_file('./dataset/'+network+'_test.csv')
+    x = x_train.columns
+    y = "C" + str(num_ftrs+1)
+    x.remove(y)
+    
     x_inference = h2o.import_file('./dataset/'+network+'_inference.csv')
     y_inference = x_inference['C2049'] #predictions
     
