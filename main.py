@@ -40,6 +40,9 @@ def seed_torch(seed=0):
 if __name__ == "__main__":  
     # Iterate over all problems
     cfg = parse_args()
+    train_time = None
+    inf_time = None
+    train_start = time.time()
     path = cfg.dataroot
     input_shape = cfg.size
     batch_size = cfg.batchsize
@@ -83,9 +86,6 @@ if __name__ == "__main__":
         best_auroc_val = [0.0, 0] # accuracy, epoch
         best_loss_val = [20.0, 0] # loss, epoch
 
-        # Time for training
-        startTimeTrain = time.time()
-
         print("### Start Training [...] ###")
         for epoch in range(0,epochs):
             # Train
@@ -107,8 +107,8 @@ if __name__ == "__main__":
                 best_model_lowest_loss = copy.deepcopy(model.state_dict())
                 best_loss_val[0], best_loss_val[1] = val_loss, epoch
 
-        endTimeTrain = time.time()
-
+        train_time = time.time() - train_start
+        print (f'Train time: {train_time} secs')
         model.load_state_dict(best_model_wts)
         torch.save(model, os.path.join(outf, str(network) + "test.pth"))
     utils.inference(model, inferenceLoader, network=network, outf=outf)

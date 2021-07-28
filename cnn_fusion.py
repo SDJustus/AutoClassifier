@@ -1,5 +1,6 @@
 import argparse
 import random
+import time
 import numpy as np
 import torch
 import os
@@ -32,16 +33,18 @@ if __name__ == "__main__":
     seed = cfg.seed
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     dataset_path = cfg.dataroot
+    inf_time = None
     
     
     seed_torch(seed)
     _, _, inferenceLoader = get_train_valid_loader(1, dataset_path)
     
-    
+    inf_start = time.time()
     aucroc_values = dict()
     model_predictions = dict()
     performances = dict()
     file_names = list()
+    
     for network in networks:
         cfg.backbone = network
         cfg.name = network + "_" + str(seed)
@@ -79,6 +82,9 @@ if __name__ == "__main__":
     final_predictions = np.sum(new_predictions, axis=0)
     #print("final_preds_after",final_predictions)
     y_preds = final_predictions
+    inf_time = time.time()-inf_start
+    print (f'Inference time_fusion: {inf_time} secs')
+    print (f'Inference time / individual_fusion: {inf_time/len(y_trues)} secs')
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print(performance)
     if cfg.display:

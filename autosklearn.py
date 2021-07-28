@@ -105,7 +105,9 @@ def generateDatasetFeatures(network, cfg, device):
 if __name__ == "__main__":
     h2o.init()
     cfg = parse_args()
-    
+    train_time = None
+    inf_time = None
+    train_start = time.time()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     network= cfg.backbone
     cfg.name = network + "_" + str(cfg.seed)
@@ -136,19 +138,17 @@ if __name__ == "__main__":
     else:
         aml = H2OAutoML(max_models = 30, max_runtime_secs=int(3600*2), seed = cfg.seed) #each problem will be searched for 2 hours
         aml.train(y = y, training_frame = x_train, validation_frame=x_test)
-
+        train_time = time.time()-train_start
         lb = aml.leaderboard
         print(lb.head())
         lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
         print(lb)
 
-    startTime = time.time()
+    inf_start = time.time()
     preds = aml.predict(x_inference)
     print("Predictions")
-    endTime = time.time()-startTime
-    print (f'Prediction time: {endTime} secs')
-    print (f'Prediction time / individual: {endTime/173} secs')
-    print(preds)
+    inf_time = time.time()-inf_start
+    
     
     if not cfg.inference_only:
         h2o.save_model(aml.leader, path="AutoML"+str(cfg.seed) + ".pth")
@@ -160,6 +160,10 @@ if __name__ == "__main__":
     y_preds = [y[0] for y in y_preds]
     y_trues = [y[0] for y in y_trues]
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
+    print (f'Train time: {train_time} secs')
+    print (f'Inference time: {inf_time} secs')
+    print (f'Inference time / individual: {inf_time/len(y_trues)} secs')
+    
     print(performance)
     
     if cfg.display:
@@ -169,6 +173,6 @@ if __name__ == "__main__":
         utils.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="AutoML_PR_Curve_AutoClassifier")
         utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_AutoML")
     utils.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join("classification_result_automl_" + str(cfg.name) + "_" + network + ".json"))
-        
+    utils.write_times()
     
 
