@@ -158,9 +158,12 @@ if __name__ == "__main__":
     y_preds = np.array(h2o.as_list(preds))
     print("Metrics [...]")
     
-    y_preds = [list(chain(*y_preds))]
-    y_trues = [list(chain(*y_trues))]
-    file_names = [list(chain(*file_names))]
+    y_preds = list(chain(*y_preds))
+    y_trues = list(chain(*y_trues))
+    file_names = list(chain(*file_names))
+    print("y_predsnew:", y_preds)
+    print("y_truesnew:", y_trues)
+    print("fnamesnew:", file_names)
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print (f'Train time: {train_time} secs')
     print (f'Inference time: {inf_time} secs')
