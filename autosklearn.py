@@ -173,6 +173,5 @@ if __name__ == "__main__":
         utils.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="AutoML_PR_Curve_AutoClassifier")
         utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_AutoML")
     utils.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join("classification_result_automl_" + str(cfg.name) + "_" + network + ".json"))
-    utils.write_times()
     
 
