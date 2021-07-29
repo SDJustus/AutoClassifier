@@ -1,4 +1,5 @@
 import argparse
+from itertools import chain
 import os
 import torch
 import torch.nn as nn
@@ -157,14 +158,16 @@ if __name__ == "__main__":
     y_preds = np.array(h2o.as_list(preds))
     print("Metrics [...]")
     
-    y_preds = [y[0] for y in y_preds]
-    y_trues = [y[0] for y in y_trues]
+    y_preds = [list(chain(*y_preds))]
+    y_trues = [list(chain(*y_trues))]
+    file_names = [list(chain(*file_names))]
     performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
     print (f'Train time: {train_time} secs')
     print (f'Inference time: {inf_time} secs')
     print (f'Inference time / individual: {inf_time/len(y_trues)} secs')
     
     print(performance)
+    
     
     if cfg.display:
         utils.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join("histogram_automl_" + str(cfg.name) + "_" + network + ".csv"), tag="Histogram_AutoML_"+str(cfg.name))

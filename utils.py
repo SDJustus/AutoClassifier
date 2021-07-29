@@ -1,3 +1,4 @@
+from itertools import chain
 import json
 import os
 from visualizer import Visualizer
@@ -375,21 +376,25 @@ class Utils():
         return fpr, tpr, auc(fpr, tpr)
 
     def write_inference_result(self, file_names, y_preds, y_trues, outf):
-            classification_result = {"tp": [], "fp": [], "tn": [], "fn": []}
-            for file_name, gt, anomaly_score in zip(file_names, y_trues, y_preds):
-                print("as_b4:", anomaly_score)
-                anomaly_score=int(anomaly_score)
-                print("gt:", gt)
-                print("as:", anomaly_score)
-                print("file_names:", file_name)
-                if gt == anomaly_score == 0:
-                    classification_result["tp"].append(file_name)
-                if anomaly_score == 0 and gt != anomaly_score:
-                    classification_result["fp"].append(file_name)
-                if gt == anomaly_score == 1:
-                    classification_result["tn"].append(file_name)
-                if anomaly_score == 1 and gt != anomaly_score:
-                    classification_result["fn"].append(file_name)
-                        
-            with open(outf, "w") as file:
-                json.dump(classification_result, file, indent=4)
+        #if any(isinstance(i, list) for i in y_trues):
+        #    y_trues = list(chain(*y_trues))
+        #if any(isinstance(i, list) for i in y_preds):
+         #   y_preds = list(chain(*y_preds))
+        classification_result = {"tp": [], "fp": [], "tn": [], "fn": []}
+        for file_name, gt, anomaly_score in zip(file_names, y_trues, y_preds):
+            print("as_b4:", anomaly_score)
+            anomaly_score=int(anomaly_score)
+            print("gt:", gt)
+            print("as:", anomaly_score)
+            print("file_names:", file_name)
+            if gt == anomaly_score == 0:
+                classification_result["tp"].append(file_name)
+            if anomaly_score == 0 and gt != anomaly_score:
+                classification_result["fp"].append(file_name)
+            if gt == anomaly_score == 1:
+                classification_result["tn"].append(file_name)
+            if anomaly_score == 1 and gt != anomaly_score:
+                classification_result["fn"].append(file_name)
+                    
+        with open(outf, "w") as file:
+            json.dump(classification_result, file, indent=4)
