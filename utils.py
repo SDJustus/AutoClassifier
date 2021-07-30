@@ -159,8 +159,8 @@ class Utils():
         inferenceTime = []
         file_names = []
         with torch.no_grad():
-            startTime = time.time()
             for data in tqdm(inferenceloader):
+                startTime = time.time()
                 inputs, labels, file_name_batch = data
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
