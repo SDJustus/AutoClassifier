@@ -47,6 +47,7 @@ if __name__ == "__main__":
     input_shape = cfg.size
     batch_size = cfg.batchsize
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    print("device:", device)
     epochs = cfg.epochs
     utils = Utils(batch_size, device, cfg=cfg)
     network = cfg.backbone
@@ -60,7 +61,7 @@ if __name__ == "__main__":
     trainLoader, testLoader, inferenceLoader = get_train_valid_loader(batch_size, path)
     # Create model
     if cfg.inference_only:
-        model = torch.load(os.path.join(outf, str(network) + "test.pth"))
+        model = torch.load(os.path.join(outf, str(network) + "test.pth"), map_location=device)
         model.to(device)
     else:
         print("[Creating the model ...]")

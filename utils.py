@@ -1,6 +1,8 @@
 from itertools import chain
 import json
 import os
+
+import cv2
 from visualizer import Visualizer
 from collections import OrderedDict
 import numpy as np
@@ -15,7 +17,8 @@ import time
 from tqdm import tqdm
 from efficientnet_pytorch import EfficientNet
 from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support, confusion_matrix, average_precision_score, fbeta_score
-
+from pytorch_grad_cam import GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM
+from pytorch_grad_cam.utils.image import show_cam_on_image
 class Utils():
 
     #--------------------------------------------------------------------------------#
@@ -166,7 +169,8 @@ class Utils():
                 labels = labels.to(self.device)
 
                 output = model(inputs)
-                
+                #amap = self.get_cam_of_model(model, model.layer4[-1], inputs)
+                #print("amap:", amap)
                 #_, predicted = torch.max(outputs.data, 1)
                 #correct += (predicted == labels).sum().item()
                 y_preds +=  list(output.detach().cpu().numpy())
@@ -396,3 +400,23 @@ class Utils():
                     
         with open(outf, "w") as file:
             json.dump(classification_result, file, indent=4)
+    # using pytorch-grad-cam (https://github.com/jacobgil/pytorch-grad-cam)
+    def get_cam_of_model(self, model, target_layers, input_tensor):
+        start_time = time.time()
+        use_cuda = True if self.device == "cuda" else False
+        print(input_tensor.shape)
+        cam_to_test = []
+        for cam_const in [GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM]:
+            cam = cam_const(model=model, target_layer=target_layers, use_cuda=use_cuda)
+            input_tensor = input_tensor.permute(0, 2, 3, 1)
+            grayscale_cam=cam(input_tensor=input_tensor)
+            print("amap shape", grayscale_cam.shape)
+            cam_to_test.append(grayscale_cam)
+            print(f"{cam_const.__name__} generation took {time.time()-start_time} seconds.")
+            for i in range(grayscale_cam.shape[0]):
+                print(input_tensor[i, :].shape)
+                visualization = show_cam_on_image(input_tensor.numpy()[i, :], grayscale_cam[i, :])
+                cv2.imwrite(f"{cam_const.__name__}{i}.png", visualization)
+            print("did visulization")
+        
+        return cam_to_test
