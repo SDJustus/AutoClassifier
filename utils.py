@@ -3,6 +3,7 @@ import json
 import os
 
 import cv2
+from matplotlib import pyplot as plt
 from visualizer import Visualizer
 from collections import OrderedDict
 import numpy as np
@@ -19,6 +20,7 @@ from efficientnet_pytorch import EfficientNet
 from sklearn.metrics import roc_curve, auc, precision_recall_fscore_support, confusion_matrix, average_precision_score, fbeta_score
 from pytorch_grad_cam import GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM
 from pytorch_grad_cam.utils.image import show_cam_on_image
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 class Utils():
 
     #--------------------------------------------------------------------------------#
@@ -28,6 +30,8 @@ class Utils():
         self.device       = device
         self.visualizer = Visualizer(cfg, utils=self)
         self.cfg = cfg
+        use_cuda = True if self.device == "cuda" else False
+        self.grad_cam = GradCAM(model=self.model, target_layer=target_layers, use_cuda=use_cuda)
         
     #--------------------------------------------------------------------------------#
     def getCrossEntropyLoss(self, binary=False):
@@ -161,22 +165,22 @@ class Utils():
         y_trues = []
         inferenceTime = []
         file_names = []
-        with torch.no_grad():
-            for data in tqdm(inferenceloader):
-                startTime = time.time()
-                inputs, labels, file_name_batch = data
-                inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
+        #with torch.no_grad():
+        for data in tqdm(inferenceloader):
+            startTime = time.time()
+            inputs, labels, file_name_batch = data
+            inputs = inputs.to(self.device)
+            labels = labels.to(self.device)
 
-                output = model(inputs)
-                #amap = self.get_cam_of_model(model, model.layer4[-1], inputs)
-                #print("amap:", amap)
-                #_, predicted = torch.max(outputs.data, 1)
-                #correct += (predicted == labels).sum().item()
-                y_preds +=  list(output.detach().cpu().numpy())
-                y_trues += list(labels.cpu().numpy())
-                inferenceTime.append(time.time()-startTime)
-                file_names.extend(file_name_batch)
+            output = model(inputs)
+            if self.cfg.save_anomaly_map:
+                save_dir = os.path.join(self.cfg.outf, "ano_maps")
+                if not os.path.isdir(save_dir): os.mkdir(save_dir)
+                self.get_cam_of_model(model, model.layer4[-1], inputs, save_dir, file_name_batch)
+            y_preds +=  list(output.detach().cpu().squeeze().numpy())
+            y_trues += list(labels.cpu().numpy())
+            inferenceTime.append(time.time()-startTime)
+            file_names.extend(file_name_batch)
         performance, t, y_preds_after_threshold = self.get_performance(y_preds=y_preds, y_trues=y_trues)
         if self.cfg.display:
             self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_inference_" + str(self.cfg.name) + "_" + network + ".csv"), tag="Histogram_Inference_"+str(self.cfg.name))
@@ -401,22 +405,22 @@ class Utils():
         with open(outf, "w") as file:
             json.dump(classification_result, file, indent=4)
     # using pytorch-grad-cam (https://github.com/jacobgil/pytorch-grad-cam)
-    def get_cam_of_model(self, model, target_layers, input_tensor):
+    def get_cam_of_model(self, model, target_layers, input_tensor, save_dir, file_names):
         start_time = time.time()
-        use_cuda = True if self.device == "cuda" else False
-        print(input_tensor.shape)
-        cam_to_test = []
-        for cam_const in [GradCAM, ScoreCAM, GradCAMPlusPlus, AblationCAM, XGradCAM, EigenCAM]:
-            cam = cam_const(model=model, target_layer=target_layers, use_cuda=use_cuda)
-            input_tensor = input_tensor.permute(0, 2, 3, 1)
-            grayscale_cam=cam(input_tensor=input_tensor)
-            print("amap shape", grayscale_cam.shape)
-            cam_to_test.append(grayscale_cam)
-            print(f"{cam_const.__name__} generation took {time.time()-start_time} seconds.")
-            for i in range(grayscale_cam.shape[0]):
-                print(input_tensor[i, :].shape)
-                visualization = show_cam_on_image(input_tensor.numpy()[i, :], grayscale_cam[i, :])
-                cv2.imwrite(f"{cam_const.__name__}{i}.png", visualization)
-            print("did visulization")
-        
-        return cam_to_test
+        amaps=cam(input_tensor=input_tensor)
+        amaps = np.nan_to_num(amaps)        # for some reason, some amaps returned from grad_cam are nan... setting to zero
+        print(f"initialization and amap generation took {time.time()-start_time} seconds.")      
+        print(file_names)
+        assert amaps.shape[0] == input_tensor.shape[0]
+        assert amaps.shape[0] == len(file_names)    # TODO: for some reason i implemented file_paths as tuples... maybe change this later
+        for i in range(amaps.shape[0]):
+            save_path = os.path.join(save_dir, file_names[i])
+            fig, axis = plt.subplots(figsize=(4,4))
+            axis.imshow(input_tensor[i, :].permute(1, 2, 0).numpy())
+            divider = make_axes_locatable(axis)
+            cax = divider.append_axes('right', size='5%', pad=0.1)
+            amap_on_image = axis.imshow(amaps[i, :], alpha=.7, cmap='viridis', vmin=0, vmax=1)
+            fig.colorbar(amap_on_image, cax=cax, orientation='vertical')
+            fig.savefig(save_path)
+            plt.close()
+    
