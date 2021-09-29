@@ -26,6 +26,7 @@ def parse_args():
     parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
     parser.add_argument("--outf", type=str, default="./output", help="dir to write results in!")
     parser.add_argument("--inference_only", action="store_true", default=False, help="do only inference")
+    parser.add_argument("--save_anomaly_map", default=False, action="store_true", help="if the anomaly maps should be saved")
     return parser.parse_args()
 
 def seed_torch(seed=0):

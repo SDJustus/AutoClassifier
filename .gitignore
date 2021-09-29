@@ -133,3 +133,7 @@ dmypy.json
 *.json
 *.txt
 dataset
+*.png
+*.jpg
+*.jpeg
+*.csv
