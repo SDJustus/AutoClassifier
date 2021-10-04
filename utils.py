@@ -176,7 +176,7 @@ class Utils():
             if self.cfg.save_anomaly_map:
                 save_dir = os.path.join(self.cfg.outf, "ano_maps")
                 if not os.path.isdir(save_dir): os.mkdir(save_dir)
-                self.get_cam_of_model(model, model.layer4[-1], inputs, save_dir, file_name_batch)
+                self.get_cam_of_model(model, model.cam_layer, inputs, save_dir, file_name_batch)
             y_preds +=  list(output.detach().cpu().squeeze().numpy())
             y_trues += list(labels.cpu().numpy())
             inferenceTime.append(time.time()-startTime)
@@ -218,6 +218,7 @@ class Utils():
             elif '152' in model_name:
                 model = torchvision.models.resnet152(pretrained=use_pretrained)
             num_ftrs = model.fc.in_features
+            model.cam_layer = model.layer4[-1]
             model.fc = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif model_name == "alexnet":
@@ -225,6 +226,7 @@ class Utils():
             """
             model = torchvision.models.alexnet(pretrained=use_pretrained)
             num_ftrs = model.classifier[6].in_features
+            model.cam_layer = model.features[-1]
             model.classifier[6] = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif "vgg" in model_name:
@@ -255,6 +257,7 @@ class Utils():
                 return None
 
             num_ftrs = model.classifier[6].in_features
+            model.cam_layer = model.features[-1]
             model.classifier[6] = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif "squeezenet" in model_name:
@@ -266,6 +269,7 @@ class Utils():
                 model = torchvision.models.squeezenet1_0(pretrained=use_pretrained)
             num_ftrs = model.classifier[1].in_channels
             model.classifier[1] = nn.Sequential(nn.Conv2d(num_ftrs, num_classes, kernel_size=(1,1), stride=(1,1)), nn.Sigmoid())
+            model.cam_layer = model.features[-1]
             model.num_classes = num_classes
 
         elif "densenet" in model_name:
@@ -281,6 +285,7 @@ class Utils():
                 model = torchvision.models.densenet121(pretrained=use_pretrained)
 
             num_ftrs = model.classifier.in_features
+            model.cam_layer = model.features[-1]
             model.classifier = nn.Sequential(nn.Linear(num_ftrs, num_classes), nn.Sigmoid())
 
         elif model_name == "inception":
@@ -407,6 +412,7 @@ class Utils():
     # using pytorch-grad-cam (https://github.com/jacobgil/pytorch-grad-cam)
     def get_cam_of_model(self, model, target_layers, input_tensor, save_dir, file_names):
         start_time = time.time()
+        cam = GradCAM(model=model, target_layer=target_layers, use_cuda=False)
         amaps=cam(input_tensor=input_tensor)
         amaps = np.nan_to_num(amaps)        # for some reason, some amaps returned from grad_cam are nan... setting to zero
         print(f"initialization and amap generation took {time.time()-start_time} seconds.")      
