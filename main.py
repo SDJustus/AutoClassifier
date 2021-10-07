@@ -27,6 +27,7 @@ def parse_args():
     parser.add_argument("--outf", type=str, default="./output", help="dir to write results in!")
     parser.add_argument("--inference_only", action="store_true", default=False, help="do only inference")
     parser.add_argument("--save_anomaly_map", default=False, action="store_true", help="if the anomaly maps should be saved")
+    parser.add_argument("--decision_threshold", type=float, default=None, help="set the decision threshold for the anomaly score manually. If not set, it is computed by AUROC-Metric")
     return parser.parse_args()
 
 def seed_torch(seed=0):
@@ -105,6 +106,9 @@ if __name__ == "__main__":
             if val_auroc > best_auroc_val[0]: # store best model so far, for later, based on best val acc
                 best_model_wts = copy.deepcopy(model.state_dict())
                 best_auroc_val[0], best_auroc_val[1] = val_auroc, epoch
+                with open(os.path.join(cfg.outf, "best_model.txt"), "a+") as file:
+                    file.write(val_performance)
+                    file.close()
             if val_loss < best_loss_val[0]: # store best model according to loss
                 best_model_lowest_loss = copy.deepcopy(model.state_dict())
                 best_loss_val[0], best_loss_val[1] = val_loss, epoch

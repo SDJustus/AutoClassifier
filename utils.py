@@ -143,16 +143,16 @@ class Utils():
 
         #acc  = 100 * correct / total
         lossTotal = running_loss / total
-        performance, t, _ = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        performance, t, y_preds_man, y_preds_auc = self.get_performance(y_preds=y_preds, y_trues=y_trues)
         with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt"), "a") as f:
             f.write(f'Epoch {epoch} - Val Performance: {str(performance)},    Loss: {str(loss)}')
             f.close()
         if self.cfg.display:
-            self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_test_" + str(self.cfg.name) + "_" + network + ".csv"), tag="Histogram_Test_"+str(self.cfg.name))
+            self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=epoch, save_path=os.path.join(outf,"histogram_False_"+str(epoch)+".png"), tag="Histogram_Test_"+str(self.cfg.name))
             self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Test_Performance_AutoClassifier")
-            self.visualizer.plot_current_conf_matrix(epoch=epoch, cm=performance["conf_matrix"], tag="Test_Confusion_Matrix_AutoClassifier")
+            self.visualizer.plot_current_conf_matrix(epoch=epoch, cm=performance["conf_matrix"], save_path=os.path.join(outf, "conf_matrix_False_"+str(epoch)+".png"), tag="Test_Confusion_Matrix_AutoClassifier")
             self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, global_step=epoch, tag="Test_PR_Curve_AutoClassifier")
-            self.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Test")
+            self.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Test", save_path=os.path.join(outf, "roc_False_"+str(epoch)+".png"))
         if epoch != None:
             print(f'Epoch {epoch} - Val Performance: {performance},    Loss: {loss}')
         return performance, lossTotal, y_preds
@@ -181,21 +181,28 @@ class Utils():
             y_trues += list(labels.cpu().numpy())
             inferenceTime.append(time.time()-startTime)
             file_names.extend(file_name_batch)
-        performance, t, y_preds_after_threshold = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        performance, t, y_preds_man, y_preds_auc = self.get_performance(y_preds=y_preds, y_trues=y_trues)
         if self.cfg.display:
-            self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_inference_" + str(self.cfg.name) + "_" + network + ".csv"), tag="Histogram_Inference_"+str(self.cfg.name))
+            self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_True.png"), tag="Histogram_Inference")
             self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
-            self.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="Inference_Confusion_Matrix_AutoClassifier")
-            self.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="Inference_PR_Curve_AutoClassifier")
-            self.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_Inference")
+            self.visualizer.plot_current_conf_matrix(1, performance["conf_matrix"], save_path=os.path.join(outf, "conf_matrix_True.png"))
+            if self.cfg.decision_threshold:
+                self.visualizer.plot_current_conf_matrix(2, performance["conf_matrix_man"], save_path=os.path.join(outf, "conf_matrix_manTrue.png"))
+                self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["manual_threshold"], global_step=2, save_path=os.path.join(outf, "histogram_manTrue.png"), tag="Histogram_Inference_man")
+            self.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve", save_path=os.path.join(outf, "roc_True.png"))
+            
+
+            self.write_inference_result(file_names=file_names, y_preds=y_preds_auc, y_trues=y_trues, outf=os.path.join(outf,"classification_result_" + str(self.cfg.name) + "_" + network + ".json"))
+            if self.cfg.decision_threshold:
+                self.write_inference_result(file_names=file_names, y_preds=y_preds_man, y_trues=y_trues, outf=os.path.join(outf,"classification_result_" + str(self.cfg.name) + "_" + network + "_man.json"))
+            
         with open(os.path.join(outf, str(self.cfg.name) + "_" + network +".txt"), "a") as f:
             f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(sum(inferenceTime))}')
             f.close()
-        self.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join(outf,"classification_result_" + str(self.cfg.name) + "_" + network + ".json"))
         print(f'Inf Performance: {performance}')
         print (f'Inference time: {sum(inferenceTime)} secs')
         print (f'Inference time / individual: {sum(inferenceTime)/len(y_trues)} secs')
-        return file_names, y_preds_after_threshold, y_trues
+        return file_names, y_preds_auc, y_trues
 
 
     #--------------------------------------------------------------------------------#
@@ -310,15 +317,19 @@ class Utils():
 
         return model, input_size
     
-    def get_performance(self, y_trues, y_preds):
+    def get_performance(self, y_trues, y_preds, manual_threshold=None):
         fpr, tpr, t = roc_curve(y_trues, y_preds)
         roc_score = auc(fpr, tpr)
         ap = average_precision_score(y_trues, y_preds, pos_label=1)
         recall_dict = dict()
         precisions = [0.996, 0.99, 0.95, 0.9]
         temp_dict=dict()
-        
-        for th in t:
+        min_thresh = 0.9*min(y_preds)
+        max_thresh = 1.1*max(y_preds)
+        print(max_thresh)
+        mov_thresh = np.random.default_rng().uniform(min_thresh, max_thresh, 400)
+        print(mov_thresh.shape)
+        for th in sorted(mov_thresh, reverse=True):
             y_preds_new = [1 if ele >= th else 0 for ele in y_preds] 
             if len(set(y_preds_new)) == 1:
                 print("y_preds_new did only contain the element {}... Continuing with next iteration!".format(y_preds_new[0]))
@@ -326,39 +337,64 @@ class Utils():
             
             precision, recall, _, _ = precision_recall_fscore_support(y_trues, y_preds_new, average="binary", pos_label=1)
             temp_dict[str(precision)] = recall
-        p_dict = OrderedDict(sorted(temp_dict.items(), reverse=True))
+            print("writing")
+        p_dict = OrderedDict(sorted(temp_dict.items(), reverse=False))
+        # interploation
+        print("interpolation steps", len(list(p_dict.keys())))
+        for i in range(len(list(p_dict.keys())), 1, -1):
+            if p_dict[list(p_dict.keys())[i-1]]>p_dict[list(p_dict.keys())[i-2]]:
+                p_dict[list(p_dict.keys())[i-2]] = p_dict[list(p_dict.keys())[i-1]]
+        print("finished interpolation")
+        p_dict = OrderedDict(sorted(p_dict.items(), reverse=True))
         for p in precisions:   
+            recall_dict["recall at pr="+str(p)] = 0.0
+            recall_dict["true pr="+str(p)] = 0.0
             for precision, recall in p_dict.items(): 
-                if float(precision)<=p:
-                    print(f"writing {p}; {precision}")
+                if float(precision)>=0.998*p:
                     recall_dict["recall at pr="+str(p)] = recall
-                    break
-                else:
+                    recall_dict["true pr="+str(p)] = float(precision)
+                    print("writing")
                     continue
+                else:
+                    break
+
         
-        
-        #Threshold
+        # auroc Threshold
         i = np.arange(len(tpr))
         roc = pd.DataFrame({'tf': pd.Series(tpr - (1 - fpr), index=i), 'threshold': pd.Series(t, index=i)})
         roc_t = roc.iloc[(roc.tf - 0).abs().argsort()[:1]]
-        threshold = roc_t['threshold']
-        threshold = list(threshold)[0]
+        auc_threshold = roc_t['threshold']
+        auc_threshold = list(auc_threshold)[0]
         
         
         
-        y_preds = [1 if ele >= threshold else 0 for ele in y_preds] 
+        y_preds_auc_thresh = [1 if ele >= auc_threshold else 0 for ele in y_preds] 
         
-        
-        precision, recall, f1_score, _ = precision_recall_fscore_support(y_trues, y_preds, average="binary", pos_label=1)
-        f05_score = fbeta_score(y_trues, y_preds, beta=0.5, average="binary", pos_label=1)
+        precision, recall, f1_score, _ = precision_recall_fscore_support(y_trues, y_preds_auc_thresh, average="binary", pos_label=1)
+        f05_score = fbeta_score(y_trues, y_preds_auc_thresh, beta=0.5, average="binary", pos_label=1)
         #### conf_matrix = [["true_normal", "false_abnormal"], ["false_normal", "true_abnormal"]]     
-        conf_matrix = confusion_matrix(y_trues, y_preds)
+        conf_matrix = confusion_matrix(y_trues, y_preds_auc_thresh)
         performance = OrderedDict([ ('auc', roc_score), ("ap", ap), ('precision', precision),
                                     ("recall", recall), ("f1_score", f1_score), ("f05_score", f05_score), ("conf_matrix", conf_matrix),
-                                    ("threshold", threshold)])
+                                    ("threshold", auc_threshold)])
+        
+        if manual_threshold:
+            man_dict = dict()
+            y_preds_man_thresh = [1 if ele >= manual_threshold else 0 for ele in y_preds]
+            precision_man, recall_man, f1_score_man, _ = precision_recall_fscore_support(y_trues, y_preds_man_thresh, average="binary", pos_label=1)
+            f05_score_man = fbeta_score(y_trues, y_preds_man_thresh, beta=0.5, average="binary", pos_label=1)
+            #### conf_matrix = [["true_normal", "false_abnormal"], ["false_normal", "true_abnormal"]]     
+            conf_matrix_man = confusion_matrix(y_trues, y_preds_man_thresh)
+            man_dict["manual_threshold"] = manual_threshold
+            man_dict["precision_man"] = precision_man
+            man_dict["recall_man"] = recall_man
+            man_dict["f1_score_man"] = f1_score_man
+            man_dict["f05_score_man"] = f05_score_man
+            man_dict["conf_matrix_man"] = conf_matrix_man
+            performance.update(man_dict)
         performance.update(recall_dict)
                                     
-        return performance, t, y_preds
+        return performance, t, y_preds_man_thresh if manual_threshold else None, y_preds_auc_thresh
 
     def get_values_for_pr_curve(self, y_trues, y_preds, thresholds):
         precisions = []
