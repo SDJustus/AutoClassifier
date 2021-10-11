@@ -447,8 +447,6 @@ class Utils():
         cam = GradCAM(model=model, target_layer=target_layers, use_cuda=True if self.device == "cuda" else False)
         amaps=cam(input_tensor=input_tensor)
         amaps = np.nan_to_num(amaps)# for some reason, some amaps returned from grad_cam are nan... setting to zero
-        print(f"initialization and amap generation took {time.time()-start_time} seconds.")      
-        print(file_names)
         assert amaps.shape[0] == input_tensor.shape[0]
         assert amaps.shape[0] == len(file_names)    # TODO: for some reason i implemented file_paths as tuples... maybe change this later
         for i in range(amaps.shape[0]):
