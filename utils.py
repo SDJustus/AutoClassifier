@@ -444,9 +444,9 @@ class Utils():
     # using pytorch-grad-cam (https://github.com/jacobgil/pytorch-grad-cam)
     def get_cam_of_model(self, model, target_layers, input_tensor, save_dir, file_names):
         start_time = time.time()
-        cam = GradCAM(model=model, target_layer=target_layers, use_cuda=False)
+        cam = GradCAM(model=model, target_layer=target_layers, use_cuda=True if self.device == "cuda" else False)
         amaps=cam(input_tensor=input_tensor)
-        amaps = np.nan_to_num(amaps)        # for some reason, some amaps returned from grad_cam are nan... setting to zero
+        amaps = np.nan_to_num(amaps)# for some reason, some amaps returned from grad_cam are nan... setting to zero
         print(f"initialization and amap generation took {time.time()-start_time} seconds.")      
         print(file_names)
         assert amaps.shape[0] == input_tensor.shape[0]
