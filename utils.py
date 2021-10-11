@@ -454,7 +454,7 @@ class Utils():
         for i in range(amaps.shape[0]):
             save_path = os.path.join(save_dir, file_names[i])
             fig, axis = plt.subplots(figsize=(4,4))
-            axis.imshow(input_tensor[i, :].permute(1, 2, 0).numpy())
+            axis.imshow(input_tensor[i, :].permute(1, 2, 0).cpu().numpy())
             divider = make_axes_locatable(axis)
             cax = divider.append_axes('right', size='5%', pad=0.1)
             amap_on_image = axis.imshow(amaps[i, :], alpha=.7, cmap='viridis', vmin=0, vmax=1)
