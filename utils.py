@@ -100,7 +100,7 @@ class Utils():
             running_loss = 0.0
             total += labels.size(0)
             
-        performance, t, _ = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        performance, t, y_preds_man, y_preds_auc = self.get_performance(y_preds=y_preds, y_trues=y_trues)
         print("Performance", str(performance))
         if self.cfg.display:
             self.visualizer.plot_performance(epoch=epoch, performance=performance, tag="Train_Performance_AutoClassifier")
@@ -171,7 +171,7 @@ class Utils():
             labels = labels.to(self.device)
 
             output = model(inputs)
-            if self.cfg.save_anomaly_map:
+            if self.cfg.save_anomaly_map:+
                 save_dir = os.path.join(self.cfg.outf, "ano_maps")
                 if not os.path.isdir(save_dir): os.mkdir(save_dir)
                 self.get_cam_of_model(model, model.cam_layer, inputs, save_dir, file_name_batch)
