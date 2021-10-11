@@ -171,7 +171,7 @@ class Utils():
             labels = labels.to(self.device)
 
             output = model(inputs)
-            if self.cfg.save_anomaly_map:+
+            if self.cfg.save_anomaly_map:
                 save_dir = os.path.join(self.cfg.outf, "ano_maps")
                 if not os.path.isdir(save_dir): os.mkdir(save_dir)
                 self.get_cam_of_model(model, model.cam_layer, inputs, save_dir, file_name_batch)
