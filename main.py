@@ -107,7 +107,7 @@ if __name__ == "__main__":
                 best_model_wts = copy.deepcopy(model.state_dict())
                 best_auroc_val[0], best_auroc_val[1] = val_auroc, epoch
                 with open(os.path.join(cfg.outf, "best_model.txt"), "a+") as file:
-                    file.write(val_performance)
+                    file.write(str(val_performance))
                     file.close()
             if val_loss < best_loss_val[0]: # store best model according to loss
                 best_model_lowest_loss = copy.deepcopy(model.state_dict())
