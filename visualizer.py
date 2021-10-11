@@ -117,7 +117,7 @@ class Visualizer():
             plt.xlabel('Predicted label')
             plt.tight_layout()
             if save_path:
-                plt.savefig(title+".png")
+                plt.savefig(save_path)
             plt.close()
             return figure
         plot = _plot_confusion_matrix(cm, normalize=False, save_path=save_path)
