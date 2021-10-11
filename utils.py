@@ -30,8 +30,6 @@ class Utils():
         self.device       = device
         self.visualizer = Visualizer(cfg, utils=self)
         self.cfg = cfg
-        use_cuda = True if self.device == "cuda" else False
-        self.grad_cam = GradCAM(model=self.model, target_layer=target_layers, use_cuda=use_cuda)
         
     #--------------------------------------------------------------------------------#
     def getCrossEntropyLoss(self, binary=False):
