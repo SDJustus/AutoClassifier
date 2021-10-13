@@ -179,7 +179,7 @@ class Utils():
             y_trues += list(labels.cpu().numpy())
             inferenceTime.append(time.time()-startTime)
             file_names.extend(file_name_batch)
-        performance, t, y_preds_man, y_preds_auc = self.get_performance(y_preds=y_preds, y_trues=y_trues)
+        performance, t, y_preds_man, y_preds_auc = self.get_performance(y_preds=y_preds, y_trues=y_trues, manual_threshold=self.cfg.decision_threshold)
         if self.cfg.display:
             self.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(outf,"histogram_True.png"), tag="Histogram_Inference")
             self.visualizer.plot_performance(epoch=1, performance=performance, tag="Inference_Performance_AutoClassifier")
