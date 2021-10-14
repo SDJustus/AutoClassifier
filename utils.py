@@ -169,7 +169,6 @@ class Utils():
             inputs, labels, file_name_batch = data
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
-            print(inputs.shape)
             output = model(inputs)
             if self.cfg.save_anomaly_map:
                 save_dir = os.path.join(self.cfg.outf, "ano_maps")
