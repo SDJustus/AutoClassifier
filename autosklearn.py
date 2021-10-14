@@ -112,6 +112,7 @@ if __name__ == "__main__":
     inf_time = None
     train_start = time.time()
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    
     network= cfg.backbone
     cfg.name = network + "_" + str(cfg.seed)
     cfg.outf = "AUTOML_" + str(cfg.seed)
@@ -178,11 +179,11 @@ if __name__ == "__main__":
             utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve", save_path=os.path.join(cfg.outf, "roc_" + mode + ".png"))
             
             if mode == "inference":
-                utils.write_inference_result(file_names=file_names, y_preds=y_preds_auc, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + ".json"))
+                utils.write_inference_result(file_names=file_names, y_preds=y_preds_auc, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + mode + ".json"))
                 if cfg.decision_threshold:
-                    utils.write_inference_result(file_names=file_names, y_preds=y_preds_man, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + "_man.json"))
+                    utils.write_inference_result(file_names=file_names, y_preds=y_preds_man, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + mode + "_man.json"))
                 
-        with open(os.path.join(str(cfg.name) + "_" + network + "_" + cfg.seed + ".txt"), "a") as f:
+        with open(os.path.join(cfg.outf, "AutoML_" + cfg.seed + "_" + mode + ".txt"), "a") as f:
             f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(sum(inf_time))}')
             f.close()
 
