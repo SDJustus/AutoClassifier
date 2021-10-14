@@ -113,7 +113,7 @@ if __name__ == "__main__":
                     utils.write_inference_result(file_names=file_names, y_preds=y_preds_man, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + "_man.json"))
         cfg.decision_threshold = performance["threshold"] if cfg.decision_threshold is not None else cfg.decision_threshold
         with open(os.path.join(cfg.outf, "fusion" + str(cfg.seed) + "_" + mode + ".txt"), "a") as f:
-            f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(sum(inf_time))}')
+            f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(inf_time)}')
             f.close()
         
     
