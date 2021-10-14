@@ -59,6 +59,7 @@ if __name__ == "__main__":
                 regex_string = re.search(r"Inf.*auc\D,\s(\d\.\d+)", file.read())[1]
                 aucroc_values[network] = float(regex_string)
                 file.close()
+        for i, network in enumerate(networks):
             weight = aucroc_values[network]/sum(aucroc_values.values())
             weight_dict[network] = weight
             print(network,"weight", weight)
@@ -70,7 +71,6 @@ if __name__ == "__main__":
             print(f"Starting Backbone: {network} Seed: {str(seed)}")
             model = torch.load(os.path.join(network+"_"+str(seed), network+"test.pth"))
             model.to(device)
-            
             before = cfg.display
             utils.cfg.display=False
             file_names, y_preds_after_threshold, y_trues = utils.inference(model, loader, network=network, outf=cfg.outf)

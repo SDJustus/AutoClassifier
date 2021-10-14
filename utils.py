@@ -169,14 +169,15 @@ class Utils():
             inputs, labels, file_name_batch = data
             inputs = inputs.to(self.device)
             labels = labels.to(self.device)
-
+            print(inputs.shape)
             output = model(inputs)
             if self.cfg.save_anomaly_map:
                 save_dir = os.path.join(self.cfg.outf, "ano_maps")
                 if not os.path.isdir(save_dir): os.mkdir(save_dir)
                 self.get_cam_of_model(model, model.cam_layer, inputs, save_dir, file_name_batch)
-            y_preds +=  list(output.detach().cpu().squeeze().numpy())
-            y_trues += list(labels.cpu().numpy())
+            y_preds.append(output.detach().cpu().squeeze().item())
+            y_trues.append(labels.cpu().squeeze().item())
+
             inferenceTime.append(time.time()-startTime)
             file_names.extend(file_name_batch)
         performance, t, y_preds_man, y_preds_auc = self.get_performance(y_preds=y_preds, y_trues=y_trues, manual_threshold=self.cfg.decision_threshold)
