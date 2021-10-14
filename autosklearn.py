@@ -20,6 +20,8 @@ def parse_args():
     parser.add_argument("--display", default=False, action="store_true")
     parser.add_argument("--batchsize", type=int, default=32, help="batchsize....")
     parser.add_argument("--inference_only", action="store_true", default=False, help="if only inference should be performed")
+    parser.add_argument("--outf", type=str, default="./output", help="dir to write results in!")
+    parser.add_argument("--decision_threshold", type=float, default=None, help="set the decision threshold for the anomaly score manually. If not set, it is computed by AUROC-Metric")
     
     return parser.parse_args()
 
@@ -112,7 +114,8 @@ if __name__ == "__main__":
     device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
     network= cfg.backbone
     cfg.name = network + "_" + str(cfg.seed)
-    cfg.outf = network + "_" + str(cfg.seed)
+    cfg.outf = "AUTOML_" + str(cfg.seed)
+    if not os.path.isdir(cfg.outf): os.mkdir(cfg.outf)
     utils = utils.Utils(cfg.batchsize, device, cfg=cfg)
     file_names, num_ftrs = generateDatasetFeatures(network, cfg=cfg, device=device)
     print(file_names)
@@ -133,7 +136,7 @@ if __name__ == "__main__":
     #x_test[y] = x_test[y].asfactor()
 
     if cfg.inference_only:
-        path = "AutoML"+str(cfg.seed)+".pth"
+        path = os.path.join(cfg.outf, "AutoML"+str(cfg.seed)+".pth")
         modelfile = [os.path.join(path,f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))][0]
         aml = h2o.load_model(modelfile)
     else:
@@ -145,39 +148,41 @@ if __name__ == "__main__":
         lb = h2o.automl.get_leaderboard(aml, extra_columns = 'ALL')
         print(lb)
 
-    inf_start = time.time()
-    preds = aml.predict(x_inference)
-    print("Predictions")
-    inf_time = time.time()-inf_start
-    
-    
     if not cfg.inference_only:
         h2o.save_model(aml.leader, path="AutoML"+str(cfg.seed) + ".pth")
-
-    y_trues = np.rint(np.array(h2o.as_list(x_inference[y]))).astype(int)
-    y_preds = np.array(h2o.as_list(preds))
-    print("Metrics [...]")
-    
-    y_preds = list(chain(*y_preds))
-    y_trues = list(chain(*y_trues))
-    file_names = list(chain(*file_names))
-    print("y_predsnew:", y_preds)
-    print("y_truesnew:", y_trues)
-    print("fnamesnew:", file_names)
-    performance, t, y_preds_after_threshold = utils.get_performance(y_trues=y_trues, y_preds=y_preds)
-    print (f'Train time: {train_time} secs')
-    print (f'Inference time: {inf_time} secs')
-    print (f'Inference time / individual: {inf_time/len(y_trues)} secs')
-    
-    print(performance)
-    
-    
-    if cfg.display:
-        utils.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join("histogram_automl_" + str(cfg.name) + "_" + network + ".csv"), tag="Histogram_AutoML_"+str(cfg.name))
-        utils.visualizer.plot_performance(epoch=1, performance=performance, tag="AutoML_Performance_AutoClassifier")
-        utils.visualizer.plot_current_conf_matrix(epoch=1, cm=performance["conf_matrix"], tag="AutoML_Confusion_Matrix_AutoClassifier")
-        utils.visualizer.plot_pr_curve(y_preds=y_preds, y_trues=y_trues, t=t, tag="AutoML_PR_Curve_AutoClassifier")
-        utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve_AutoML")
-    utils.write_inference_result(file_names=file_names, y_preds=y_preds_after_threshold, y_trues=y_trues, outf=os.path.join("classification_result_automl_" + str(cfg.name) + "_" + network + ".json"))
-    
+    for x, mode in zip([x_test, x_inference], ["test", "inference"]):
+        inf_start = time.time()
+        preds = aml.predict(x)
+        print("Predictions")
+        inf_time = time.time()-inf_start
+        y_trues = np.rint(np.array(h2o.as_list(x[y]))).astype(int)
+        y_preds = np.array(h2o.as_list(preds))
+        print("Metrics [...]")
+        
+        y_preds = list(chain(*y_preds))
+        y_trues = list(chain(*y_trues))
+        file_names = list(chain(*file_names))
+        print (f'Train time: {train_time} secs')
+        print (f'Inference time: {inf_time} secs')
+        print (f'Inference time / individual: {inf_time/len(y_trues)} secs')
+        
+        performance, t, y_preds_man, y_preds_auc = utils.get_performance(y_preds=y_preds, y_trues=y_trues, manual_threshold=cfg.decision_threshold)
+        print(performance)
+        if cfg.display:
+            utils.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["threshold"], global_step=1, save_path=os.path.join(cfg.outf,"histogram_" + mode + ".png"), tag="Histogram_" + mode)
+            utils.visualizer.plot_performance(epoch=1, performance=performance, tag="" + mode + "_Performance_AutoClassifier")
+            utils.visualizer.plot_current_conf_matrix(1, performance["conf_matrix"], save_path=os.path.join(cfg.outf, "conf_matrix_" + mode + ".png"))
+            if cfg.decision_threshold:
+                utils.visualizer.plot_current_conf_matrix(2, performance["conf_matrix_man"], save_path=os.path.join(cfg.outf, "conf_matrix_man" + mode + ".png"))
+                utils.visualizer.plot_histogram(y_trues=y_trues, y_preds=y_preds, threshold=performance["manual_threshold"], global_step=2, save_path=os.path.join(cfg.outf, "histogram_man" + mode + ".png"), tag="Histogram_" + mode + "_man")
+            utils.visualizer.plot_roc_curve(y_trues=y_trues, y_preds=y_preds, global_step=1, tag="ROC_Curve", save_path=os.path.join(cfg.outf, "roc_" + mode + ".png"))
+            
+            if mode == "inference":
+                utils.write_inference_result(file_names=file_names, y_preds=y_preds_auc, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + ".json"))
+                if cfg.decision_threshold:
+                    utils.write_inference_result(file_names=file_names, y_preds=y_preds_man, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + "_man.json"))
+                
+        with open(os.path.join(str(cfg.name) + "_" + network + "_" + cfg.seed + ".txt"), "a") as f:
+            f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(sum(inf_time))}')
+            f.close()
 
