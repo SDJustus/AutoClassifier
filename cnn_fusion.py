@@ -53,10 +53,10 @@ if __name__ == "__main__":
         aucroc_values = dict()
         model_predictions = dict()
         performances = dict()
-        file_names = list()
+        file_names = list() 
         for i, network in enumerate(networks):
-            with open(os.path.join(network+"_"+str(seed), network+"_"+str(seed)+"_"+network+".txt"), "r") as file:
-                regex_string = re.search(r"Inf.*auc\D,\s(\d\.\d+)", file.read())[1]
+            with open(os.path.join(network+"_"+str(seed), "best_model.txt"), "r") as file:
+                regex_string = re.findall(r"auc\D,\s(\d\.\d+)", file.read())[-1]
                 aucroc_values[network] = float(regex_string)
                 file.close()
         for i, network in enumerate(networks):
@@ -69,7 +69,7 @@ if __name__ == "__main__":
             if not os.path.isdir(cfg.outf): os.mkdir(cfg.outf)
             utils = Utils(1, device, cfg=cfg)
             print(f"Starting Backbone: {network} Seed: {str(seed)}")
-            model = torch.load(os.path.join(network+"_"+str(seed), network+"test.pth"))
+            model = torch.load(os.path.join(network+"_"+str(seed), network+"test.pth"), map_location=torch.device(device))
             model.to(device)
             before = cfg.display
             utils.cfg.display=False
@@ -111,7 +111,8 @@ if __name__ == "__main__":
                 utils.write_inference_result(file_names=file_names, y_preds=y_preds_auc, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + ".json"))
                 if cfg.decision_threshold:
                     utils.write_inference_result(file_names=file_names, y_preds=y_preds_man, y_trues=y_trues, outf=os.path.join(cfg.outf,"classification_result_" + str(cfg.name) + "_" + network + "_man.json"))
-        cfg.decision_threshold = performance["threshold"] if cfg.decision_threshold is not None else cfg.decision_threshold
+        cfg.decision_threshold = performance["threshold"] if cfg.decision_threshold is None else cfg.decision_threshold
+        print("decision_threshold", cfg.decision_threshold)
         with open(os.path.join(cfg.outf, "fusion" + str(cfg.seed) + "_" + mode + ".txt"), "a") as f:
             f.write(f'Inf Performance: {str(performance)}, Inf_times: {str(inf_time)}')
             f.close()
