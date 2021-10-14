@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 new_predictions = np.array(weight*model_predictions[network])
         
         with open(os.path.join(cfg.outf, "model_weights.txt"), "a") as f:
-            f.write(weight_dict)
+            f.write(str(weight_dict))
             f.write("\n")
             f.close() 
         #print("final_preds", final_predictions)
