@@ -137,7 +137,7 @@ if __name__ == "__main__":
     #x_test[y] = x_test[y].asfactor()
 
     if cfg.inference_only:
-        path = os.path.join(s"AutoML"+str(cfg.seed)+".pth")
+        path = os.path.join("AutoML"+str(cfg.seed)+".pth")
         modelfile = [os.path.join(path,f) for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))][0]
         aml = h2o.load_model(modelfile)
     else:
