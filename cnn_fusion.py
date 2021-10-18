@@ -41,7 +41,7 @@ if __name__ == "__main__":
     
     
     seed_torch(seed)
-    _, test_loader, inference_loader = get_train_valid_loader(1, dataset_path)
+    _, test_loader, inference_loader = get_train_valid_loader(16, dataset_path)
     
     
     
