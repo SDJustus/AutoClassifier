@@ -174,8 +174,8 @@ class Utils():
                 save_dir = os.path.join(self.cfg.outf, "ano_maps")
                 if not os.path.isdir(save_dir): os.mkdir(save_dir)
                 self.get_cam_of_model(model, model.cam_layer, inputs, save_dir, file_name_batch)
-            y_preds.append(output.detach().cpu().squeeze().item())
-            y_trues.append(labels.cpu().squeeze().item())
+            y_preds+=list(output.detach().cpu().squeeze().numpy())
+            y_trues+=list(labels.cpu().squeeze().numpy())
 
             inferenceTime.append(time.time()-startTime)
             file_names.extend(file_name_batch)
