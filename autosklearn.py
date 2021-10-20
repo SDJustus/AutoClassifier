@@ -162,7 +162,6 @@ if __name__ == "__main__":
         
         y_preds = list(chain(*y_preds))
         y_trues = list(chain(*y_trues))
-        file_names = list(chain(*file_names))
         print (f'Train time: {train_time} secs')
         print (f'Inference time: {inf_time} secs')
         print (f'Inference time / individual: {inf_time/len(y_trues)} secs')
