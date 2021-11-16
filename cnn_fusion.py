@@ -56,7 +56,8 @@ if __name__ == "__main__":
         file_names = list() 
         for i, network in enumerate(networks):
             with open(os.path.join(network+"_"+str(seed), "best_model.txt"), "r") as file:
-                regex_string = re.findall(r"auc\D,\s(\d\.\d+)", file.read())[-1]
+                #regex_string = re.findall(r"auc\D,\s(\d\.\d+)", file.read())[-1]
+                regex_string=file.read().split("[")[-1].split(",")[0]
                 aucroc_values[network] = float(regex_string)
                 file.close()
         for i, network in enumerate(networks):
