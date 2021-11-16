@@ -152,7 +152,7 @@ class Visualizer():
         nrm_scr = hist.loc[hist.labels == 0]['scores']
 
             # Create figure and plot the distribution.
-        fig = plt.figure()
+        fig = plt.figure(figsize=(4,4))
         sns.distplot(nrm_scr, label=r'Normal Scores')
         sns.distplot(abn_scr, label=r'Abnormal Scores')
         plt.axvline(threshold, 0, 1, label='threshold', color="red")
